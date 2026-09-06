@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="20260907-social-create-follow" author="minhdat">
+        <createTable tableName="follows">
+            <column name="follow_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_follows"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="follower_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+                tableName="follows"
+                columnNames="follower_id,target_type,target_id"
+                constraintName="uk_follows_follower_target"/>
+        <createIndex tableName="follows" indexName="idx_follows_follower">
+            <column name="follower_id"/>
+        </createIndex>
+        <createIndex tableName="follows" indexName="idx_follows_target">
+            <column name="target_type"/>
+            <column name="target_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20260907-social-create-content-report" author="minhdat">
+        <createTable tableName="content_reports">
+            <column name="report_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_content_reports"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="reporter_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="VARCHAR(2000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="content_report_evidence">
+            <column name="report_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="storage_key" type="VARCHAR(1000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_order" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+                tableName="content_report_evidence"
+                columnNames="report_id,display_order"
+                constraintName="pk_content_report_evidence"/>
+        <addForeignKeyConstraint
+                baseTableName="content_report_evidence"
+                baseColumnNames="report_id"
+                referencedTableName="content_reports"
+                referencedColumnNames="report_id"
+                constraintName="fk_content_report_evidence_report"
+                onDelete="CASCADE"/>
+        <createIndex tableName="content_reports" indexName="idx_content_reports_reporter">
+            <column name="reporter_id"/>
+        </createIndex>
+        <createIndex tableName="content_reports" indexName="idx_content_reports_target">
+            <column name="target_type"/>
+            <column name="target_id"/>
+        </createIndex>
+        <createIndex tableName="content_reports" indexName="idx_content_reports_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20260907-social-create-moderation-action" author="minhdat">
+        <createTable tableName="moderation_actions">
+            <column name="action_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_moderation_actions"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="report_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="moderator_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action_type" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="VARCHAR(2000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="moderation_actions"
+                baseColumnNames="report_id"
+                referencedTableName="content_reports"
+                referencedColumnNames="report_id"
+                constraintName="fk_moderation_actions_report"
+                onDelete="CASCADE"/>
+        <createIndex tableName="moderation_actions" indexName="idx_moderation_actions_report">
+            <column name="report_id"/>
+        </createIndex>
+        <createIndex tableName="moderation_actions" indexName="idx_moderation_actions_moderator">
+            <column name="moderator_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20260907-social-create-content-appeal" author="minhdat">
+        <createTable tableName="content_appeals">
+            <column name="appeal_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_content_appeals"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="action_id" type="UUID">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_content_appeals_action"/>
+            </column>
+            <column name="appellant_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="VARCHAR(2000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reviewed_by" type="UUID"/>
+            <column name="reviewed_at" type="DATETIME"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="content_appeals"
+                baseColumnNames="action_id"
+                referencedTableName="moderation_actions"
+                referencedColumnNames="action_id"
+                constraintName="fk_content_appeals_action"
+                onDelete="CASCADE"/>
+        <createIndex tableName="content_appeals" indexName="idx_content_appeals_appellant">
+            <column name="appellant_id"/>
+        </createIndex>
+        <createIndex tableName="content_appeals" indexName="idx_content_appeals_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20260907-social-index-existing-relations" author="minhdat">
+        <createIndex tableName="friendships" indexName="idx_friendships_requester_status">
+            <column name="requester_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="friendships" indexName="idx_friendships_addressee_status">
+            <column name="addressee_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="user_blocks" indexName="idx_user_blocks_blocker">
+            <column name="blocker_id"/>
+        </createIndex>
+        <createIndex tableName="user_blocks" indexName="idx_user_blocks_blocked_user">
+            <column name="blocked_user_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

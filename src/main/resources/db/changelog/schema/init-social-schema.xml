@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="1782600000001-1" author="minhdat">
+        <createTable tableName="friendships">
+            <column name="friendship_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_friendships"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="requester_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="addressee_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="requester_name" type="VARCHAR(255)"/>
+            <column name="requester_avatar" type="VARCHAR(1000)"/>
+            <column name="addressee_name" type="VARCHAR(255)"/>
+            <column name="addressee_avatar" type="VARCHAR(1000)"/>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="requested_at" type="DATETIME"/>
+            <column name="responded_at" type="DATETIME"/>
+        </createTable>
+
+        <createTable tableName="user_blocks">
+            <column name="block_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_user_blocks"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="blocker_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="blocker_name" type="VARCHAR(255)"/>
+            <column name="blocked_user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="blocked_user_name" type="VARCHAR(255)"/>
+            <column name="reason" type="VARCHAR(1000)"/>
+            <column name="blocked_at" type="DATETIME"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
