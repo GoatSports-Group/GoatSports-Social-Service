@@ -108,8 +108,11 @@ public class SocialChatServiceImpl implements SocialChatService {
         distinctMembers.putIfAbsent(command.getCreatorId(), CreateConversationCommand.MemberItem.builder()
                 .userId(command.getCreatorId())
                 .build());
-        if (distinctMembers.size() < 3) {
-            throw new ServiceException("Nhóm trò chuyện cần ít nhất 3 thành viên.");
+        int minimumMembers = command.getType() == ConversationType.MATCH ? 2 : 3;
+        if (distinctMembers.size() < minimumMembers) {
+            throw new ServiceException(command.getType() == ConversationType.MATCH
+                    ? "Cuộc trò chuyện trận đấu cần đủ 2 người tham gia."
+                    : "Nhóm trò chuyện cần ít nhất 3 thành viên.");
         }
 
         LocalDateTime now = LocalDateTime.now();
