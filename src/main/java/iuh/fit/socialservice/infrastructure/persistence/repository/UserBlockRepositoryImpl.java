@@ -36,6 +36,13 @@ public class UserBlockRepositoryImpl implements UserBlockRepository {
     }
 
     @Override
+    public List<UserBlock> findRelatedToUser(UUID userId) {
+        return jpaUserBlockRepository.findRelatedToUser(userId).stream()
+                .map(userBlockEntityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<UserBlock> findByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId) {
         return jpaUserBlockRepository.findByBlockerIdAndBlockedUserId(blockerId, blockedUserId).map(userBlockEntityMapper::toDomain);
     }

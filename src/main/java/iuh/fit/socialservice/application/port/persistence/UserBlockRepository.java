@@ -10,6 +10,7 @@ public interface UserBlockRepository {
     UserBlock save(UserBlock userBlock);
     Optional<UserBlock> findById(UUID blockId);
     List<UserBlock> findByBlockerId(UUID blockerId);
+    List<UserBlock> findRelatedToUser(UUID userId);
     Optional<UserBlock> findByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId);
     boolean existsByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId);
     void deleteById(UUID blockId);
