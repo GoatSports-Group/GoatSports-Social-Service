@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,15 +20,19 @@ public interface JpaConversationRepository extends JpaRepository<ConversationEnt
     @EntityGraph(attributePaths = "members")
     Optional<ConversationEntity> findById(UUID conversationId);
 
-    @EntityGraph(attributePaths = "members")
     @Query(
-            value = "SELECT DISTINCT c FROM ConversationEntity c JOIN c.members m " +
-                    "WHERE m.userId = :userId AND m.leftAt IS NULL " +
+            value = "SELECT c.conversationId FROM ConversationEntity c " +
+                    "WHERE EXISTS (SELECT m.memberId FROM ConversationMemberEntity m " +
+                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL) " +
                     "ORDER BY COALESCE(c.lastMessageAt, c.updatedAt, c.createdAt) DESC",
-            countQuery = "SELECT COUNT(DISTINCT c) FROM ConversationEntity c JOIN c.members m " +
-                    "WHERE m.userId = :userId AND m.leftAt IS NULL"
+            countQuery = "SELECT COUNT(c) FROM ConversationEntity c " +
+                    "WHERE EXISTS (SELECT m.memberId FROM ConversationMemberEntity m " +
+                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL)"
     )
-    Page<ConversationEntity> findUserConversations(@Param("userId") UUID userId, Pageable pageable);
+    Page<UUID> findUserConversationIds(@Param("userId") UUID userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = "members")
+    List<ConversationEntity> findAllByConversationIdIn(Collection<UUID> conversationIds);
 
     @EntityGraph(attributePaths = "members")
     @Query("""
