@@ -1,9 +1,9 @@
 package iuh.fit.socialservice.presentation.controller;
 
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialReportService;
-import iuh.fit.socialservice.infrastructure.annotation.ApiMessage;
-import iuh.fit.socialservice.infrastructure.security.SecurityContextHelper;
+import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialReportConverter;
 import iuh.fit.socialservice.presentation.request.CreateContentReportRequest;
 import iuh.fit.socialservice.presentation.response.ContentReportResponse;
@@ -28,7 +28,7 @@ import java.util.UUID;
 public class SocialReportController {
     private final SocialReportService reportService;
     private final SocialReportConverter reportConverter;
-    private final SecurityContextHelper securityContextHelper;
+    private final CurrentUserProvider currentUserProvider;
 
     @PostMapping
     @ApiMessage("Gửi báo cáo nội dung thành công")
@@ -50,7 +50,7 @@ public class SocialReportController {
     }
 
     private UUID requiredUserId() throws ServiceException {
-        String value = securityContextHelper.getCurrentUserId()
+        String value = currentUserProvider.getCurrentUserId()
                 .orElseThrow(() -> new ServiceException("Phiên đăng nhập đã hết hạn"));
         try {
             return UUID.fromString(value);

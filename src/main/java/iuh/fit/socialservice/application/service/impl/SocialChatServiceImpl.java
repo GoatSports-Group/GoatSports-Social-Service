@@ -94,11 +94,6 @@ public class SocialChatServiceImpl implements SocialChatService {
     @Override
     @Transactional
     public ConversationResponseCommand createGroupConversation(CreateConversationCommand command) throws ServiceException {
-        if (command.getCreatorId() == null) throw new ServiceException("Thiếu mã người tạo nhóm.");
-        if (command.getName() == null || command.getName().isBlank()) {
-            throw new ServiceException("Tên nhóm trò chuyện không được để trống.");
-        }
-
         Map<UUID, CreateConversationCommand.MemberItem> distinctMembers = new LinkedHashMap<>();
         if (command.getMembers() != null) {
             command.getMembers().stream()
@@ -108,12 +103,7 @@ public class SocialChatServiceImpl implements SocialChatService {
         distinctMembers.putIfAbsent(command.getCreatorId(), CreateConversationCommand.MemberItem.builder()
                 .userId(command.getCreatorId())
                 .build());
-        int minimumMembers = command.getType() == ConversationType.MATCH ? 2 : 3;
-        if (distinctMembers.size() < minimumMembers) {
-            throw new ServiceException(command.getType() == ConversationType.MATCH
-                    ? "Cuộc trò chuyện trận đấu cần đủ 2 người tham gia."
-                    : "Nhóm trò chuyện cần ít nhất 3 thành viên.");
-        }
+        command.validate(distinctMembers.size());
 
         LocalDateTime now = LocalDateTime.now();
         List<ConversationMember> members = distinctMembers.keySet().stream()
@@ -152,7 +142,7 @@ public class SocialChatServiceImpl implements SocialChatService {
     public MessageResponseCommand sendMessage(SendMessageCommand command) throws ServiceException {
         Conversation conversation = requireConversation(command.getConversationId());
         requireActiveMember(conversation, command.getSenderId());
-        validateMessage(command);
+        command.validate();
 
         if (conversation.getType() == ConversationType.DIRECT) {
             for (ConversationMember member : conversation.getMembers()) {
@@ -245,18 +235,6 @@ public class SocialChatServiceImpl implements SocialChatService {
                 .filter(member -> userId.equals(member.getUserId()) && member.getLeftAt() == null)
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("Bạn không phải thành viên của cuộc trò chuyện này."));
-    }
-
-    private void validateMessage(SendMessageCommand command) throws ServiceException {
-        boolean hasContent = command.getContent() != null && !command.getContent().trim().isEmpty();
-        boolean hasAttachments = command.getAttachments() != null && !command.getAttachments().isEmpty();
-        if (!hasContent && !hasAttachments) {
-            throw new ServiceException("Tin nhắn phải có nội dung hoặc tệp đính kèm.");
-        }
-        if (hasAttachments && command.getAttachments().stream().anyMatch(item ->
-                item.getStorageKey() == null || item.getStorageKey().isBlank() || item.getType() == null)) {
-            throw new ServiceException("Thông tin tệp đính kèm không hợp lệ.");
-        }
     }
 
     private ConversationMember newMember(UUID userId, MemberRole role, LocalDateTime joinedAt) {

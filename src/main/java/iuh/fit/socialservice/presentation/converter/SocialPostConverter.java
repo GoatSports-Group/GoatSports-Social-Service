@@ -14,6 +14,7 @@ import iuh.fit.socialservice.presentation.response.PostResponse;
 import iuh.fit.socialservice.presentation.response.PostShareResponse;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -23,7 +24,7 @@ public class SocialPostConverter {
                 .actorId(actorId)
                 .content(request.getContent())
                 .visibility(request.getVisibility())
-                .attachments(request.getAttachments() == null ? java.util.List.of()
+                .attachments(request.getAttachments() == null ? List.of()
                         : request.getAttachments().stream().map(item -> SavePostCommand.AttachmentItem.builder()
                                 .storageKey(item.getStorageKey())
                                 .type(item.getType())

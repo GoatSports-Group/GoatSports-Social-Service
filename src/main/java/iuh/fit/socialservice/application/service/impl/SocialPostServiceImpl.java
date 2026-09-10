@@ -40,8 +40,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class SocialPostServiceImpl implements SocialPostService {
-    private static final int MAX_ATTACHMENTS = 10;
-
     private final PostRepository postRepository;
     private final PostCommentRepository commentRepository;
     private final PostReactionRepository reactionRepository;
@@ -67,7 +65,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     public PostResponseCommand createPost(SavePostCommand command) throws ServiceException {
         requireActor(command.getActorId());
-        validatePost(command);
+        command.validate();
         LocalDateTime now = LocalDateTime.now();
         Post post = Post.builder()
                 .authorId(command.getActorId())
@@ -85,7 +83,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     public PostResponseCommand updatePost(UUID postId, SavePostCommand command) throws ServiceException {
         requireActor(command.getActorId());
-        validatePost(command);
+        command.validate();
         Post post = ownedPost(postId, command.getActorId());
         if (post.getStatus() == PostStatus.REMOVED) {
             throw new ServiceException("Bài viết đã bị xóa");
@@ -209,30 +207,6 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .caption(share.getCaption())
                 .sharedAt(share.getSharedAt())
                 .build();
-    }
-
-    private void validatePost(SavePostCommand command) throws ServiceException {
-        if (command.getVisibility() == null) {
-            throw new ServiceException("Quyền riêng tư của bài viết không được để trống");
-        }
-        List<SavePostCommand.AttachmentItem> attachments = command.getAttachments() == null
-                ? List.of()
-                : command.getAttachments();
-        if ((command.getContent() == null || command.getContent().isBlank()) && attachments.isEmpty()) {
-            throw new ServiceException("Bài viết phải có nội dung hoặc tệp đính kèm");
-        }
-        if (command.getContent() != null && command.getContent().trim().length() > 5000) {
-            throw new ServiceException("Nội dung bài viết không được vượt quá 5000 ký tự");
-        }
-        if (attachments.size() > MAX_ATTACHMENTS) {
-            throw new ServiceException("Mỗi bài viết được đính kèm tối đa 10 tệp");
-        }
-        for (SavePostCommand.AttachmentItem attachment : attachments) {
-            if (attachment == null || attachment.getStorageKey() == null
-                    || attachment.getStorageKey().isBlank() || attachment.getType() == null) {
-                throw new ServiceException("Tệp đính kèm không hợp lệ");
-            }
-        }
     }
 
     private List<PostAttachment> toAttachments(List<SavePostCommand.AttachmentItem> items) {

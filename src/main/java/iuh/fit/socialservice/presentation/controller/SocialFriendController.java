@@ -5,7 +5,7 @@ import iuh.fit.socialservice.application.dto.request.SendFriendRequestCommand;
 import iuh.fit.socialservice.application.dto.response.FriendshipResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.service.SocialFriendService;
-import iuh.fit.socialservice.infrastructure.annotation.ApiMessage;
+import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialFriendConverter;
 import iuh.fit.socialservice.presentation.request.RespondFriendRequest;
 import iuh.fit.socialservice.presentation.request.SendFriendRequest;

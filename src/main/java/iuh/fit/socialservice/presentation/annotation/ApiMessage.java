@@ -1,4 +1,4 @@
-package iuh.fit.socialservice.infrastructure.annotation;
+package iuh.fit.socialservice.presentation.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

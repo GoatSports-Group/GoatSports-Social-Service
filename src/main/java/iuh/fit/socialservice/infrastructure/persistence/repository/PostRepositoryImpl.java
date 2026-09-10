@@ -16,6 +16,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -77,7 +78,7 @@ public class PostRepositoryImpl implements PostRepository {
             visibility = new Criteria().orOperator(publicPosts, ownPosts, friendPosts);
         }
 
-        List<Criteria> criteria = new java.util.ArrayList<>();
+        List<Criteria> criteria = new ArrayList<>();
         criteria.add(Criteria.where("status").is(PostStatus.PUBLISHED));
         criteria.add(visibility);
         if (!blockedUserIds.isEmpty()) {

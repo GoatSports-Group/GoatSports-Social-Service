@@ -27,24 +27,8 @@ public class SocialReportServiceImpl implements SocialReportService {
 
     @Override
     public ContentReportResponseCommand createReport(CreateContentReportCommand command) throws ServiceException {
-        if (command.getReporterId() == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
-        if (command.getTargetType() == null || command.getTargetId() == null) {
-            throw new ServiceException("Nội dung cần báo cáo không hợp lệ");
-        }
-        validateTarget(command.getTargetType(), command.getTargetId());
-        String reason = command.getReason() == null ? "" : command.getReason().trim();
-        if (reason.length() < 10 || reason.length() > 2000) {
-            throw new ServiceException("Lý do báo cáo phải có từ 10 đến 2000 ký tự");
-        }
-        List<String> evidence = command.getEvidence() == null ? List.of()
-                : command.getEvidence().stream()
-                        .filter(value -> value != null && !value.isBlank())
-                        .map(String::trim)
-                        .distinct()
-                        .toList();
-        if (evidence.size() > 5 || evidence.stream().anyMatch(value -> value.length() > 1000)) {
-            throw new ServiceException("Tối đa 5 tệp minh chứng hợp lệ");
-        }
+        CreateContentReportCommand.ValidatedReport validated = command.validate();
+        ensureTargetExists(command.getTargetType(), command.getTargetId());
         if (reportRepository.existsOpenReport(
                 command.getReporterId(),
                 command.getTargetType(),
@@ -58,8 +42,8 @@ public class SocialReportServiceImpl implements SocialReportService {
                 .reporterId(command.getReporterId())
                 .targetType(command.getTargetType())
                 .targetId(command.getTargetId())
-                .reason(reason)
-                .evidence(evidence)
+                .reason(validated.reason())
+                .evidence(validated.evidence())
                 .status(ReportStatus.PENDING)
                 .build();
         return toResponse(reportRepository.save(report));
@@ -72,7 +56,7 @@ public class SocialReportServiceImpl implements SocialReportService {
         return reportRepository.findByReporterId(reporterId, pageable).map(this::toResponse);
     }
 
-    private void validateTarget(ReportTargetType targetType, UUID targetId) throws ServiceException {
+    private void ensureTargetExists(ReportTargetType targetType, UUID targetId) throws ServiceException {
         if (targetType == ReportTargetType.POST && postRepository.findById(targetId).isEmpty()) {
             throw new ServiceException("Không tìm thấy bài viết cần báo cáo");
         }

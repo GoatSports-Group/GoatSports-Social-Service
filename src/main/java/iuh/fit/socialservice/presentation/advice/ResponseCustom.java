@@ -1,7 +1,7 @@
-package iuh.fit.socialservice.infrastructure;
+package iuh.fit.socialservice.presentation.advice;
 
 import iuh.fit.socialservice.application.dto.response.base.BaseResponse;
-import iuh.fit.socialservice.infrastructure.annotation.ApiMessage;
+import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
@@ -31,24 +31,18 @@ public class ResponseCustom implements ResponseBodyAdvice<Object> {
 
         BaseResponse<Object> baseResponse = new BaseResponse<>();
         baseResponse.setStatusCode(statusCode);
-
-        if (body instanceof String) {
-            return body;
-        }
+        if (body instanceof String) return body;
 
         String path = request.getURI().getPath();
-        if (path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui") || path.startsWith("/actuator") || path.startsWith("/ws")) {
+        if (path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")
+                || path.startsWith("/actuator") || path.startsWith("/ws")) {
             return body;
         }
+        if (statusCode >= 400) return body;
 
-        if (statusCode >= 400) {
-            return body;
-        } else {
-            baseResponse.setData(body);
-            ApiMessage apiMessage = returnType.getMethodAnnotation(ApiMessage.class);
-            baseResponse.setMessage(apiMessage != null ? apiMessage.value() : "Success");
-        }
-
+        baseResponse.setData(body);
+        ApiMessage apiMessage = returnType.getMethodAnnotation(ApiMessage.class);
+        baseResponse.setMessage(apiMessage != null ? apiMessage.value() : "Success");
         return baseResponse;
     }
 }

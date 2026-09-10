@@ -4,7 +4,7 @@ import iuh.fit.socialservice.application.dto.request.BlockUserCommand;
 import iuh.fit.socialservice.application.dto.response.UserBlockResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.service.SocialBlockService;
-import iuh.fit.socialservice.infrastructure.annotation.ApiMessage;
+import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialBlockConverter;
 import iuh.fit.socialservice.presentation.request.BlockUserRequest;
 import iuh.fit.socialservice.presentation.response.UserBlockResponse;

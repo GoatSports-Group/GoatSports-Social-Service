@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -58,7 +59,7 @@ public class ConversationRepositoryImpl implements ConversationRepository {
 
         List<Conversation> conversations = conversationIds.getContent().stream()
                 .map(conversationsById::get)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .map(conversationEntityMapper::toDomain)
                 .toList();
 

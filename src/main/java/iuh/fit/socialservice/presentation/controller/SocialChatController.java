@@ -6,7 +6,7 @@ import iuh.fit.socialservice.application.dto.response.ConversationResponseComman
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.service.SocialChatService;
-import iuh.fit.socialservice.infrastructure.annotation.ApiMessage;
+import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialChatConverter;
 import iuh.fit.socialservice.presentation.request.CreateConversationRequest;
 import iuh.fit.socialservice.presentation.request.SendMessageRequest;
