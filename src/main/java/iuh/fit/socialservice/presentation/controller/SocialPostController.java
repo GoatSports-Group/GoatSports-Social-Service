@@ -12,6 +12,7 @@ import iuh.fit.socialservice.presentation.request.UpdateCommentRequest;
 import iuh.fit.socialservice.presentation.response.PostCommentResponse;
 import iuh.fit.socialservice.presentation.response.PostResponse;
 import iuh.fit.socialservice.presentation.response.PostShareResponse;
+import iuh.fit.socialservice.presentation.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -41,13 +42,13 @@ public class SocialPostController {
 
     @GetMapping
     @ApiMessage("Lấy bảng tin thành công")
-    public ResponseEntity<Page<PostResponse>> getFeed(
+    public ResponseEntity<PageResponse<PostResponse>> getFeed(
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
         Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), pageable)
                 .map(postConverter::toResponse);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(PageResponse.from(response));
     }
 
     @GetMapping("/{postId}")
@@ -88,14 +89,14 @@ public class SocialPostController {
 
     @GetMapping("/{postId}/comments")
     @ApiMessage("Lấy bình luận thành công")
-    public ResponseEntity<Page<PostCommentResponse>> getComments(
+    public ResponseEntity<PageResponse<PostCommentResponse>> getComments(
             @PathVariable UUID postId,
             @PageableDefault(size = 20) Pageable pageable
     ) throws ServiceException {
         Page<PostCommentResponse> response = postService
                 .getComments(postId, currentUserIdOrNull(), pageable)
                 .map(postConverter::toResponse);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(PageResponse.from(response));
     }
 
     @PostMapping("/{postId}/comments")

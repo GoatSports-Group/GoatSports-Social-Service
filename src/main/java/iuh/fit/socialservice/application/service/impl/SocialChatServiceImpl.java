@@ -239,7 +239,6 @@ public class SocialChatServiceImpl implements SocialChatService {
 
     private ConversationMember newMember(UUID userId, MemberRole role, LocalDateTime joinedAt) {
         return ConversationMember.builder()
-                .memberId(UUID.randomUUID())
                 .userId(userId)
                 .role(role)
                 .joinedAt(joinedAt)

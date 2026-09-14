@@ -7,6 +7,7 @@ import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialReportConverter;
 import iuh.fit.socialservice.presentation.request.CreateContentReportRequest;
 import iuh.fit.socialservice.presentation.response.ContentReportResponse;
+import iuh.fit.socialservice.presentation.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,11 +43,13 @@ public class SocialReportController {
 
     @GetMapping("/me")
     @ApiMessage("Lấy lịch sử báo cáo thành công")
-    public ResponseEntity<Page<ContentReportResponse>> getMyReports(
+    public ResponseEntity<PageResponse<ContentReportResponse>> getMyReports(
             @PageableDefault(size = 10) Pageable pageable
     ) throws ServiceException {
-        return ResponseEntity.ok(reportService.getMyReports(requiredUserId(), pageable)
-                .map(reportConverter::toResponse));
+        return ResponseEntity.ok(PageResponse.from(
+                reportService.getMyReports(requiredUserId(), pageable)
+                        .map(reportConverter::toResponse)
+        ));
     }
 
     private UUID requiredUserId() throws ServiceException {

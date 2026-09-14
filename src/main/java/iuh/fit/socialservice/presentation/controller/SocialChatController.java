@@ -12,6 +12,7 @@ import iuh.fit.socialservice.presentation.request.CreateConversationRequest;
 import iuh.fit.socialservice.presentation.request.SendMessageRequest;
 import iuh.fit.socialservice.presentation.response.ConversationResponse;
 import iuh.fit.socialservice.presentation.response.MessageResponse;
+import iuh.fit.socialservice.presentation.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,12 +33,12 @@ public class SocialChatController {
 
     @GetMapping
     @ApiMessage("Lấy danh sách cuộc trò chuyện thành công")
-    public ResponseEntity<Page<ConversationResponse>> getUserConversations(
+    public ResponseEntity<PageResponse<ConversationResponse>> getUserConversations(
             @RequestParam UUID userId,
             Pageable pageable
     ) {
         Page<ConversationResponseCommand> result = chatService.getUserConversations(userId, pageable);
-        return ResponseEntity.ok(result.map(chatConverter::toResponse));
+        return ResponseEntity.ok(PageResponse.from(result.map(chatConverter::toResponse)));
     }
 
     @GetMapping("/{conversationId}")
@@ -72,13 +73,13 @@ public class SocialChatController {
 
     @GetMapping("/{conversationId}/messages")
     @ApiMessage("Lấy lịch sử tin nhắn cuộc trò chuyện thành công")
-    public ResponseEntity<Page<MessageResponse>> getConversationMessages(
+    public ResponseEntity<PageResponse<MessageResponse>> getConversationMessages(
             @PathVariable UUID conversationId,
             @RequestParam UUID userId,
             Pageable pageable
     ) throws ServiceException {
         Page<MessageResponseCommand> result = chatService.getConversationMessages(conversationId, userId, pageable);
-        return ResponseEntity.ok(result.map(chatConverter::toResponse));
+        return ResponseEntity.ok(PageResponse.from(result.map(chatConverter::toResponse)));
     }
 
     @PostMapping("/{conversationId}/messages")
