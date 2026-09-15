@@ -4,12 +4,14 @@ import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.websocket.SocialWebSocketPublisher;
 import iuh.fit.socialservice.application.service.SocialChatService;
+import iuh.fit.socialservice.application.service.SocialPresenceService;
 import iuh.fit.socialservice.domain.enums.MessageType;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
 import java.util.UUID;
@@ -21,6 +23,7 @@ public class SocialWsController {
 
     private final SocialChatService chatService;
     private final SocialWebSocketPublisher webSocketPublisher;
+    private final SocialPresenceService presenceService;
 
     @MessageMapping("/social/chat.send")
     public void handleSendMessage(@Payload WsMessagePayload payload) {
@@ -50,6 +53,24 @@ public class SocialWsController {
         );
     }
 
+    @MessageMapping("/social/presence.heartbeat")
+    public void handlePresenceHeartbeat(
+            @Payload WsPresencePayload payload,
+            SimpMessageHeaderAccessor headers
+    ) {
+        if (payload != null) {
+            presenceService.heartbeat(payload.getUserId(), headers.getSessionId());
+        }
+    }
+
+    @MessageMapping("/social/presence.offline")
+    public void handlePresenceOffline(
+            @Payload WsPresencePayload payload,
+            SimpMessageHeaderAccessor headers
+    ) {
+        presenceService.disconnect(headers.getSessionId(), payload == null ? null : payload.getUserId());
+    }
+
     @Data
     public static class WsMessagePayload {
         private UUID conversationId;
@@ -66,5 +87,10 @@ public class SocialWsController {
         private UUID userId;
         private String userName;
         private boolean typing;
+    }
+
+    @Data
+    public static class WsPresencePayload {
+        private UUID userId;
     }
 }

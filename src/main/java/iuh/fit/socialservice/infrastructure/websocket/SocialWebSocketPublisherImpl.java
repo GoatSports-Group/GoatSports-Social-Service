@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.infrastructure.websocket;
 
 import iuh.fit.socialservice.application.port.websocket.SocialWebSocketPublisher;
+import iuh.fit.socialservice.application.dto.response.PresenceStatusCommand;
 import iuh.fit.socialservice.domain.entity.Message;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,5 +33,10 @@ public class SocialWebSocketPublisherImpl implements SocialWebSocketPublisher {
                 "typing", typing
         );
         messagingTemplate.convertAndSend(destination, (Object) payload);
+    }
+
+    @Override
+    public void publishPresenceStatus(PresenceStatusCommand status) {
+        messagingTemplate.convertAndSend("/topic/presence", status);
     }
 }
