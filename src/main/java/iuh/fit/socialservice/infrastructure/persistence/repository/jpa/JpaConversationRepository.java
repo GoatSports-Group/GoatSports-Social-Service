@@ -50,4 +50,39 @@ public interface JpaConversationRepository extends JpaRepository<ConversationEnt
             @Param("firstUserId") UUID firstUserId,
             @Param("secondUserId") UUID secondUserId
     );
+
+    @EntityGraph(attributePaths = "members")
+    List<ConversationEntity> findByContextIdOrderByCreatedAtAsc(@Param("contextId") UUID contextId);
+
+    /**
+     * Mọi cuộc trò chuyện 1-1 (DIRECT hoặc MATCH) giữa đúng hai người này, hoạt động gần nhất trước.
+     * Dùng để tái sử dụng luồng chat sẵn có thay vì tạo luồng mới cho mỗi kèo.
+     */
+    @EntityGraph(attributePaths = "members")
+    @Query("""
+            SELECT c FROM ConversationEntity c
+            WHERE c.type IN :types
+              AND (SELECT COUNT(m) FROM ConversationMemberEntity m
+                   WHERE m.conversation = c AND m.leftAt IS NULL) = 2
+              AND EXISTS (SELECT m1 FROM ConversationMemberEntity m1
+                          WHERE m1.conversation = c AND m1.userId = :firstUserId AND m1.leftAt IS NULL)
+              AND EXISTS (SELECT m2 FROM ConversationMemberEntity m2
+                          WHERE m2.conversation = c AND m2.userId = :secondUserId AND m2.leftAt IS NULL)
+            ORDER BY COALESCE(c.lastMessageAt, c.updatedAt, c.createdAt) DESC
+            """)
+    List<ConversationEntity> findPairConversations(
+            @Param("types") Collection<ConversationType> types,
+            @Param("firstUserId") UUID firstUserId,
+            @Param("secondUserId") UUID secondUserId
+    );
+
+    @EntityGraph(attributePaths = "members")
+    @Query("""
+            SELECT c FROM ConversationEntity c
+            WHERE c.type IN :types
+              AND (SELECT COUNT(m) FROM ConversationMemberEntity m
+                   WHERE m.conversation = c AND m.leftAt IS NULL) = 2
+            ORDER BY c.createdAt ASC
+            """)
+    List<ConversationEntity> findAllPairConversations(@Param("types") Collection<ConversationType> types);
 }

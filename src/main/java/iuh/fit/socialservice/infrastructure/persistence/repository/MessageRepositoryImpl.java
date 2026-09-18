@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -109,5 +110,17 @@ public class MessageRepositoryImpl implements MessageRepository {
     @Override
     public void deleteById(UUID messageId) {
         mongoMessageRepository.deleteById(messageId.toString());
+    }
+
+    @Override
+    public long reassignConversation(UUID fromConversationId, UUID toConversationId) {
+        if (fromConversationId == null || toConversationId == null || fromConversationId.equals(toConversationId)) {
+            return 0;
+        }
+        return mongoTemplate.updateMulti(
+                Query.query(Criteria.where("conversationId").is(fromConversationId.toString())),
+                new Update().set("conversationId", toConversationId.toString()),
+                MessageEntity.class
+        ).getModifiedCount();
     }
 }

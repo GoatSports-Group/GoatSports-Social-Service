@@ -24,6 +24,9 @@ import java.util.stream.Collectors;
 @Repository
 @RequiredArgsConstructor
 public class ConversationRepositoryImpl implements ConversationRepository {
+    private static final List<ConversationType> PAIR_CONVERSATION_TYPES =
+            List.of(ConversationType.DIRECT, ConversationType.MATCH);
+
     private final JpaConversationRepository jpaConversationRepository;
     private final ConversationEntityMapper conversationEntityMapper;
 
@@ -71,6 +74,36 @@ public class ConversationRepositoryImpl implements ConversationRepository {
     public Optional<Conversation> findDirectBetween(UUID firstUserId, UUID secondUserId) {
         return jpaConversationRepository.findDirectBetween(ConversationType.DIRECT, firstUserId, secondUserId)
                 .map(conversationEntityMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Conversation> findByContextId(UUID contextId) {
+        if (contextId == null) return Optional.empty();
+        return jpaConversationRepository.findByContextIdOrderByCreatedAtAsc(contextId).stream()
+                .findFirst()
+                .map(conversationEntityMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Conversation> findPairConversation(UUID firstUserId, UUID secondUserId) {
+        if (firstUserId == null || secondUserId == null || firstUserId.equals(secondUserId)) {
+            return Optional.empty();
+        }
+        return jpaConversationRepository
+                .findPairConversations(PAIR_CONVERSATION_TYPES, firstUserId, secondUserId)
+                .stream()
+                .findFirst()
+                .map(conversationEntityMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Conversation> findAllPairConversations() {
+        return jpaConversationRepository.findAllPairConversations(PAIR_CONVERSATION_TYPES).stream()
+                .map(conversationEntityMapper::toDomain)
+                .toList();
     }
 
     @Override

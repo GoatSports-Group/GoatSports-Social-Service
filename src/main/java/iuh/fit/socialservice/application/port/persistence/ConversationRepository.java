@@ -12,5 +12,8 @@ public interface ConversationRepository {
     Optional<Conversation> findById(UUID conversationId);
     Page<Conversation> findUserConversations(UUID userId, Pageable pageable);
     Optional<Conversation> findDirectBetween(UUID u1, UUID u2);
+    Optional<Conversation> findByContextId(UUID contextId);
+    Optional<Conversation> findPairConversation(UUID u1, UUID u2);
+    java.util.List<Conversation> findAllPairConversations();
     void deleteById(UUID conversationId);
 }

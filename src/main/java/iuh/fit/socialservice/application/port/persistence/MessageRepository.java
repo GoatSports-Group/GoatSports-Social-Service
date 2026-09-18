@@ -16,4 +16,5 @@ public interface MessageRepository {
     void markConversationAsRead(UUID conversationId, UUID userId);
     long countUnreadMessages(UUID conversationId, UUID userId);
     void deleteById(UUID messageId);
+    long reassignConversation(UUID fromConversationId, UUID toConversationId);
 }

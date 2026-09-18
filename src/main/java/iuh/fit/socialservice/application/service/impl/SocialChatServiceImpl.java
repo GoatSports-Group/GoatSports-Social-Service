@@ -105,6 +105,11 @@ public class SocialChatServiceImpl implements SocialChatService {
                 .build());
         command.validate(distinctMembers.size());
 
+        Optional<Conversation> reusable = findReusableConversation(command, List.copyOf(distinctMembers.keySet()));
+        if (reusable.isPresent()) {
+            return mapToConversationResponse(bindContext(reusable.get(), command));
+        }
+
         LocalDateTime now = LocalDateTime.now();
         List<ConversationMember> members = distinctMembers.keySet().stream()
                 .map(userId -> newMember(
@@ -123,6 +128,38 @@ public class SocialChatServiceImpl implements SocialChatService {
                 .updatedAt(now)
                 .build();
         return mapToConversationResponse(conversationRepository.save(conversation));
+    }
+
+    /**
+     * Một cặp người chơi chỉ nên có duy nhất một luồng chat 1-1. Kèo mới dùng lại
+     * luồng sẵn có (DIRECT hoặc MATCH) thay vì tạo thêm hội thoại trùng lặp.
+     */
+    private Optional<Conversation> findReusableConversation(CreateConversationCommand command, List<UUID> memberIds) {
+        Optional<Conversation> sameContext = conversationRepository.findByContextId(command.getContextId());
+        if (sameContext.isPresent()) return sameContext;
+        if (command.getType() != ConversationType.MATCH || memberIds.size() != 2) return Optional.empty();
+        return conversationRepository.findPairConversation(memberIds.get(0), memberIds.get(1));
+    }
+
+    /**
+     * Gắn kèo hiện tại vào luồng chat đang dùng lại. Luồng chat cá nhân (DIRECT) giữ
+     * nguyên tên và kiểu để không bị đổi thành "Kèo ..." trước mặt người dùng.
+     */
+    private Conversation bindContext(Conversation conversation, CreateConversationCommand command) {
+        boolean changed = false;
+        if (command.getContextId() != null && !command.getContextId().equals(conversation.getContextId())) {
+            conversation.setContextId(command.getContextId());
+            changed = true;
+        }
+        if (conversation.getType() == ConversationType.MATCH
+                && command.getName() != null
+                && !command.getName().trim().equals(conversation.getName())) {
+            conversation.setName(command.getName().trim());
+            changed = true;
+        }
+        if (!changed) return conversation;
+        conversation.setUpdatedAt(LocalDateTime.now());
+        return conversationRepository.save(conversation);
     }
 
     @Override
