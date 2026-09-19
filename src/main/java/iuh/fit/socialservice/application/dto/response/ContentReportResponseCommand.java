@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.application.dto.response;
 
+import iuh.fit.socialservice.domain.enums.ModerationActionType;
 import iuh.fit.socialservice.domain.enums.ReportStatus;
 import iuh.fit.socialservice.domain.enums.ReportTargetType;
 import lombok.AllArgsConstructor;
@@ -27,4 +28,18 @@ public class ContentReportResponseCommand {
     private ReportStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<ActionItem> actions;
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ActionItem {
+        private UUID actionId;
+        private UUID moderatorId;
+        private ModerationActionType actionType;
+        private String reason;
+        private LocalDateTime actionAt;
+    }
 }

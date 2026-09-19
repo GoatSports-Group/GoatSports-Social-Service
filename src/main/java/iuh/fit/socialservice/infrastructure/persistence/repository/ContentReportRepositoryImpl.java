@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -41,6 +42,12 @@ public class ContentReportRepositoryImpl implements ContentReportRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<ContentReport> findById(UUID reportId) {
+        return jpaRepository.findById(reportId).map(this::toDomain);
+    }
+
+    @Override
     public boolean existsOpenReport(
             UUID reporterId,
             ReportTargetType targetType,
@@ -56,6 +63,12 @@ public class ContentReportRepositoryImpl implements ContentReportRepository {
     @Transactional(readOnly = true)
     public Page<ContentReport> findByReporterId(UUID reporterId, Pageable pageable) {
         return jpaRepository.findByReporterIdOrderByCreatedAtDesc(reporterId, pageable).map(this::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ContentReport> findByStatusIn(Collection<ReportStatus> statuses, Pageable pageable) {
+        return jpaRepository.findByStatusInOrderByCreatedAtAsc(statuses, pageable).map(this::toDomain);
     }
 
     private ContentReport toDomain(ContentReportEntity entity) {

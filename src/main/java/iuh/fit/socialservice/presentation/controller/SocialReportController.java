@@ -2,10 +2,15 @@ package iuh.fit.socialservice.presentation.controller;
 
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
+import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
+import iuh.fit.socialservice.application.service.SocialModerationService;
 import iuh.fit.socialservice.application.service.SocialReportService;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
+import iuh.fit.socialservice.presentation.converter.SocialModerationConverter;
 import iuh.fit.socialservice.presentation.converter.SocialReportConverter;
 import iuh.fit.socialservice.presentation.request.CreateContentReportRequest;
+import iuh.fit.socialservice.presentation.request.SubmitAppealRequest;
+import iuh.fit.socialservice.presentation.response.ContentAppealResponse;
 import iuh.fit.socialservice.presentation.response.ContentReportResponse;
 import iuh.fit.socialservice.presentation.response.PageResponse;
 import jakarta.validation.Valid;
@@ -28,7 +33,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SocialReportController {
     private final SocialReportService reportService;
+    private final SocialModerationService moderationService;
     private final SocialReportConverter reportConverter;
+    private final SocialModerationConverter moderationConverter;
     private final CurrentUserProvider currentUserProvider;
 
     @PostMapping
@@ -49,6 +56,31 @@ public class SocialReportController {
         return ResponseEntity.ok(PageResponse.from(
                 reportService.getMyReports(requiredUserId(), pageable)
                         .map(reportConverter::toResponse)
+        ));
+    }
+
+    @PostMapping("/appeals")
+    @ApiMessage("Gửi khiếu nại thành công")
+    public ResponseEntity<ContentAppealResponse> submitAppeal(
+            @Valid @RequestBody SubmitAppealRequest request
+    ) throws ServiceException {
+        return ResponseEntity.status(HttpStatus.CREATED).body(moderationConverter.toResponse(
+                moderationService.submitAppeal(SubmitAppealCommand.builder()
+                        .actionId(request.getActionId())
+                        .appellantId(requiredUserId())
+                        .reason(request.getReason())
+                        .build())
+        ));
+    }
+
+    @GetMapping("/appeals/me")
+    @ApiMessage("Lấy lịch sử khiếu nại thành công")
+    public ResponseEntity<PageResponse<ContentAppealResponse>> getMyAppeals(
+            @PageableDefault(size = 10) Pageable pageable
+    ) throws ServiceException {
+        return ResponseEntity.ok(PageResponse.from(
+                moderationService.getMyAppeals(requiredUserId(), pageable)
+                        .map(moderationConverter::toResponse)
         ));
     }
 

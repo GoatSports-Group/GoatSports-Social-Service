@@ -7,6 +7,7 @@ import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
 import iuh.fit.socialservice.application.port.persistence.PostReactionRepository;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.port.persistence.PostShareRepository;
+import iuh.fit.socialservice.application.port.persistence.FollowRepository;
 import iuh.fit.socialservice.application.port.persistence.UserBlockRepository;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostReaction;
@@ -47,6 +48,8 @@ class SocialPostServiceImplTest {
     private FriendshipRepository friendshipRepository;
     @Mock
     private UserBlockRepository userBlockRepository;
+    @Mock
+    private FollowRepository followRepository;
 
     private SocialPostServiceImpl service;
 
@@ -58,7 +61,8 @@ class SocialPostServiceImplTest {
                 reactionRepository,
                 shareRepository,
                 friendshipRepository,
-                userBlockRepository
+                userBlockRepository,
+                followRepository
         );
     }
 

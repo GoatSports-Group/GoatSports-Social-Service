@@ -12,8 +12,10 @@ import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
 import iuh.fit.socialservice.application.port.persistence.PostReactionRepository;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.port.persistence.PostShareRepository;
+import iuh.fit.socialservice.application.port.persistence.FollowRepository;
 import iuh.fit.socialservice.application.port.persistence.UserBlockRepository;
 import iuh.fit.socialservice.application.service.SocialPostService;
+import iuh.fit.socialservice.domain.entity.Follow;
 import iuh.fit.socialservice.domain.entity.Friendship;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
@@ -23,6 +25,7 @@ import iuh.fit.socialservice.domain.entity.PostShare;
 import iuh.fit.socialservice.domain.entity.UserBlock;
 import iuh.fit.socialservice.domain.enums.FriendshipStatus;
 import iuh.fit.socialservice.domain.enums.PostStatus;
+import iuh.fit.socialservice.domain.enums.FollowTargetType;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import iuh.fit.socialservice.domain.enums.ReactionType;
 import lombok.RequiredArgsConstructor;
@@ -46,12 +49,14 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final PostShareRepository shareRepository;
     private final FriendshipRepository friendshipRepository;
     private final UserBlockRepository userBlockRepository;
+    private final FollowRepository followRepository;
 
     @Override
-    public Page<PostResponseCommand> getFeed(UUID viewerId, Pageable pageable) {
+    public Page<PostResponseCommand> getFeed(UUID viewerId, boolean followingOnly, Pageable pageable) {
         Set<UUID> friendIds = viewerId == null ? Set.of() : friendIds(viewerId);
         Set<UUID> blockedIds = viewerId == null ? Set.of() : blockedUserIds(viewerId);
-        return postRepository.findFeed(viewerId, friendIds, blockedIds, pageable)
+        Set<UUID> followingIds = viewerId == null || !followingOnly ? Set.of() : followingUserIds(viewerId);
+        return postRepository.findFeed(viewerId, friendIds, followingIds, blockedIds, followingOnly, pageable)
                 .map(post -> toResponse(post, viewerId));
     }
 
@@ -266,6 +271,14 @@ public class SocialPostServiceImpl implements SocialPostService {
             result.add(userId.equals(friendship.getRequesterId())
                     ? friendship.getAddresseeId()
                     : friendship.getRequesterId());
+        }
+        return result;
+    }
+
+    private Set<UUID> followingUserIds(UUID userId) {
+        Set<UUID> result = new HashSet<>();
+        for (Follow follow : followRepository.findByFollowerIdAndTargetType(userId, FollowTargetType.USER)) {
+            result.add(follow.getTargetId());
         }
         return result;
     }

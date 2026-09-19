@@ -6,5 +6,6 @@ public enum ModerationActionType {
     SUSPEND_USER,
     SUSPEND_VENUE,
     RESTORE_CONTENT,
-    WARNING
+    WARNING,
+    DISMISS_REPORT
 }

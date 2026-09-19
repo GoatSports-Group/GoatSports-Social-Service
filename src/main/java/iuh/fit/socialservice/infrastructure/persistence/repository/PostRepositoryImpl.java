@@ -17,6 +17,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -52,19 +53,27 @@ public class PostRepositoryImpl implements PostRepository {
     public Page<Post> findFeed(
             UUID viewerId,
             Set<UUID> friendIds,
+            Set<UUID> followingIds,
             Set<UUID> blockedUserIds,
+            boolean followingOnly,
             Pageable pageable
     ) {
-        Criteria criteria = feedCriteria(viewerId, friendIds, blockedUserIds);
+        Criteria criteria = feedCriteria(viewerId, friendIds, followingIds, blockedUserIds, followingOnly);
         long total = mongoTemplate.count(new Query(criteria), PostEntity.class);
-        Query query = new Query(feedCriteria(viewerId, friendIds, blockedUserIds)).with(pageable);
+        Query query = new Query(criteria).with(pageable);
         List<Post> posts = mongoTemplate.find(query, PostEntity.class).stream()
                 .map(postEntityMapper::toDomain)
                 .toList();
         return new PageImpl<>(posts, pageable, total);
     }
 
-    private Criteria feedCriteria(UUID viewerId, Set<UUID> friendIds, Set<UUID> blockedUserIds) {
+    private Criteria feedCriteria(
+            UUID viewerId,
+            Set<UUID> friendIds,
+            Set<UUID> followingIds,
+            Set<UUID> blockedUserIds,
+            boolean followingOnly
+    ) {
         Criteria visibility;
         if (viewerId == null) {
             visibility = Criteria.where("visibility").is(PostVisibility.PUBLIC);
@@ -83,6 +92,12 @@ public class PostRepositoryImpl implements PostRepository {
         criteria.add(visibility);
         if (!blockedUserIds.isEmpty()) {
             criteria.add(Criteria.where("authorId").nin(blockedUserIds.stream().map(UUID::toString).toList()));
+        }
+        if (followingOnly && viewerId != null) {
+            Set<UUID> authors = new HashSet<>(friendIds);
+            authors.addAll(followingIds);
+            authors.add(viewerId);
+            criteria.add(Criteria.where("authorId").in(authors.stream().map(UUID::toString).toList()));
         }
         return new Criteria().andOperator(criteria.toArray(Criteria[]::new));
     }

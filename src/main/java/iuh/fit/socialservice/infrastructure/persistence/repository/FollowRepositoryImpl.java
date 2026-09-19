@@ -8,6 +8,7 @@ import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFollow
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,5 +36,24 @@ public class FollowRepositoryImpl implements FollowRepository {
     @Override
     public void deleteById(UUID followId) {
         jpaFollowRepository.deleteById(followId);
+    }
+
+    @Override
+    public List<Follow> findByFollowerIdAndTargetType(UUID followerId, FollowTargetType targetType) {
+        return jpaFollowRepository.findByFollowerIdAndTargetType(followerId, targetType).stream()
+                .map(followEntityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Follow> findByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId) {
+        return jpaFollowRepository.findByTargetTypeAndTargetId(targetType, targetId).stream()
+                .map(followEntityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId) {
+        return jpaFollowRepository.countByTargetTypeAndTargetId(targetType, targetId);
     }
 }

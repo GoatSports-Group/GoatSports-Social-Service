@@ -13,5 +13,12 @@ public interface PostRepository {
 
     Optional<Post> findById(UUID postId);
 
-    Page<Post> findFeed(UUID viewerId, Set<UUID> friendIds, Set<UUID> blockedUserIds, Pageable pageable);
+    Page<Post> findFeed(
+            UUID viewerId,
+            Set<UUID> friendIds,
+            Set<UUID> followingIds,
+            Set<UUID> blockedUserIds,
+            boolean followingOnly,
+            Pageable pageable
+    );
 }

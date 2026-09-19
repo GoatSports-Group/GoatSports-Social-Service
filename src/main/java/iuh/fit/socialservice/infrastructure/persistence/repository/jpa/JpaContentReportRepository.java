@@ -21,4 +21,6 @@ public interface JpaContentReportRepository extends JpaRepository<ContentReportE
     );
 
     Page<ContentReportEntity> findByReporterIdOrderByCreatedAtDesc(UUID reporterId, Pageable pageable);
+
+    Page<ContentReportEntity> findByStatusInOrderByCreatedAtAsc(Collection<ReportStatus> statuses, Pageable pageable);
 }

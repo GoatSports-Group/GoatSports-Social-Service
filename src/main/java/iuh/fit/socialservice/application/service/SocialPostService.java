@@ -13,7 +13,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 public interface SocialPostService {
-    Page<PostResponseCommand> getFeed(UUID viewerId, Pageable pageable);
+    Page<PostResponseCommand> getFeed(UUID viewerId, boolean followingOnly, Pageable pageable);
 
     PostResponseCommand getPost(UUID postId, UUID viewerId) throws ServiceException;
 

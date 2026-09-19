@@ -7,10 +7,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ContentReportRepository {
     ContentReport save(ContentReport report);
+
+    Optional<ContentReport> findById(UUID reportId);
 
     boolean existsOpenReport(
             UUID reporterId,
@@ -20,4 +23,6 @@ public interface ContentReportRepository {
     );
 
     Page<ContentReport> findByReporterId(UUID reporterId, Pageable pageable);
+
+    Page<ContentReport> findByStatusIn(Collection<ReportStatus> statuses, Pageable pageable);
 }

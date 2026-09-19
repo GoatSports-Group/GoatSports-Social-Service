@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,10 +44,11 @@ public class SocialPostController {
     @GetMapping
     @ApiMessage("Lấy bảng tin thành công")
     public ResponseEntity<PageResponse<PostResponse>> getFeed(
+            @RequestParam(defaultValue = "false") boolean followingOnly,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), pageable)
+        Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), followingOnly, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
     }
