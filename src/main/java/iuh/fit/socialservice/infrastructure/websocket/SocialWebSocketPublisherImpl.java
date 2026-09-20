@@ -25,11 +25,10 @@ public class SocialWebSocketPublisherImpl implements SocialWebSocketPublisher {
     }
 
     @Override
-    public void publishTypingIndicator(UUID conversationId, UUID userId, String userName, boolean typing) {
+    public void publishTypingIndicator(UUID conversationId, UUID userId, boolean typing) {
         String destination = "/topic/conversations/" + conversationId + "/typing";
         Map<String, Object> payload = Map.of(
                 "userId", userId.toString(),
-                "userName", userName,
                 "typing", typing
         );
         messagingTemplate.convertAndSend(destination, (Object) payload);

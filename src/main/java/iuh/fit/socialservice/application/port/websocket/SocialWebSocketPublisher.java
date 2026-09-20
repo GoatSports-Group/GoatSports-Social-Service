@@ -7,6 +7,8 @@ import java.util.UUID;
 
 public interface SocialWebSocketPublisher {
     void publishMessageToConversation(UUID conversationId, Message message);
-    void publishTypingIndicator(UUID conversationId, UUID userId, String userName, boolean typing);
+
+    void publishTypingIndicator(UUID conversationId, UUID userId, boolean typing);
+
     void publishPresenceStatus(PresenceStatusCommand status);
 }
