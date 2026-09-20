@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.application.service.impl;
 
 import iuh.fit.socialservice.application.dto.request.CreateConversationCommand;
+import iuh.fit.socialservice.application.dto.request.SyncContextConversationCommand;
 import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
@@ -28,6 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Objects;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -130,10 +134,63 @@ public class SocialChatServiceImpl implements SocialChatService {
         return mapToConversationResponse(conversationRepository.save(conversation));
     }
 
-    /**
-     * Một cặp người chơi chỉ nên có duy nhất một luồng chat 1-1. Kèo mới dùng lại
-     * luồng sẵn có (DIRECT hoặc MATCH) thay vì tạo thêm hội thoại trùng lặp.
-     */
+    @Override
+    @Transactional
+    public ConversationResponseCommand syncContextConversation(SyncContextConversationCommand command)
+            throws ServiceException {
+        command.validate();
+        LocalDateTime now = LocalDateTime.now();
+        Set<UUID> desired = new LinkedHashSet<>();
+        desired.add(command.getOwnerId());
+        if (command.getMemberIds() != null) {
+            command.getMemberIds().stream().filter(Objects::nonNull).forEach(desired::add);
+        }
+
+        Conversation conversation = conversationRepository.findByContextId(command.getContextId()).orElse(null);
+        if (conversation == null) {
+            List<ConversationMember> members = desired.stream()
+                    .map(userId -> newMember(userId,
+                            userId.equals(command.getOwnerId()) ? MemberRole.OWNER : MemberRole.MEMBER, now))
+                    .toList();
+            conversation = Conversation.builder()
+                    .type(command.getType() == null ? ConversationType.CLUB : command.getType())
+                    .name(command.getName().trim())
+                    .avatarUrl(command.getAvatarUrl())
+                    .contextId(command.getContextId())
+                    .members(members)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            return mapToConversationResponse(conversationRepository.save(conversation));
+        }
+
+        conversation.setName(command.getName().trim());
+        if (command.getAvatarUrl() != null) conversation.setAvatarUrl(command.getAvatarUrl());
+
+        List<ConversationMember> members = conversation.getMembers() == null
+                ? new ArrayList<>() : new ArrayList<>(conversation.getMembers());
+        Set<UUID> present = new LinkedHashSet<>();
+        for (ConversationMember member : members) {
+            boolean shouldBeActive = desired.contains(member.getUserId());
+            if (shouldBeActive) {
+                present.add(member.getUserId());
+                if (member.getLeftAt() != null) {
+                    member.setLeftAt(null);
+                    member.setJoinedAt(now);
+                }
+            } else if (member.getLeftAt() == null) {
+                member.setLeftAt(now);
+            }
+        }
+        desired.stream().filter(userId -> !present.contains(userId))
+                .forEach(userId -> members.add(newMember(userId,
+                        userId.equals(command.getOwnerId()) ? MemberRole.OWNER : MemberRole.MEMBER, now)));
+
+        conversation.setMembers(members);
+        conversation.setUpdatedAt(now);
+        return mapToConversationResponse(conversationRepository.save(conversation));
+    }
+
     private Optional<Conversation> findReusableConversation(CreateConversationCommand command, List<UUID> memberIds) {
         Optional<Conversation> sameContext = conversationRepository.findByContextId(command.getContextId());
         if (sameContext.isPresent()) return sameContext;

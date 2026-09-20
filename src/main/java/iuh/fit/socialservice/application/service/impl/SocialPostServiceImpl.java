@@ -18,6 +18,7 @@ import iuh.fit.socialservice.application.service.SocialPostService;
 import iuh.fit.socialservice.domain.entity.Follow;
 import iuh.fit.socialservice.domain.entity.Friendship;
 import iuh.fit.socialservice.domain.entity.Post;
+import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
 import iuh.fit.socialservice.domain.entity.PostComment;
 import iuh.fit.socialservice.domain.entity.PostReaction;
@@ -34,6 +35,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -50,6 +52,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final FriendshipRepository friendshipRepository;
     private final UserBlockRepository userBlockRepository;
     private final FollowRepository followRepository;
+    private final StorageKeyPromoter storageKeyPromoter;
 
     @Override
     public Page<PostResponseCommand> getFeed(UUID viewerId, boolean followingOnly, Pageable pageable) {
@@ -216,14 +219,27 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     private List<PostAttachment> toAttachments(List<SavePostCommand.AttachmentItem> items) {
         if (items == null) return List.of();
-        return items.stream()
+        List<SavePostCommand.AttachmentItem> ordered = items.stream()
                 .sorted(Comparator.comparing(item -> item.getDisplayOrder() == null ? 0 : item.getDisplayOrder()))
-                .map(item -> PostAttachment.builder()
-                        .storageKey(item.getStorageKey().trim())
-                        .type(item.getType())
-                        .displayOrder(item.getDisplayOrder() == null ? 0 : item.getDisplayOrder())
-                        .build())
                 .toList();
+
+        // Anh vua upload nam o `temp/`; doi sang vung vinh vien truoc khi luu khoa vao bai viet,
+        // neu khong thi anh chon roi khong dang se tich lai mai va lifecycle rule tren `temp/`
+        // se xoa mat anh cua bai da dang.
+        List<String> promoted = storageKeyPromoter.promote(
+                ordered.stream().map(item -> item.getStorageKey().trim()).toList(),
+                "social-post");
+
+        List<PostAttachment> attachments = new ArrayList<>(ordered.size());
+        for (int index = 0; index < ordered.size(); index++) {
+            SavePostCommand.AttachmentItem item = ordered.get(index);
+            attachments.add(PostAttachment.builder()
+                    .storageKey(promoted.get(index))
+                    .type(item.getType())
+                    .displayOrder(item.getDisplayOrder() == null ? 0 : item.getDisplayOrder())
+                    .build());
+        }
+        return attachments;
     }
 
     private Post publishedPost(UUID postId) throws ServiceException {

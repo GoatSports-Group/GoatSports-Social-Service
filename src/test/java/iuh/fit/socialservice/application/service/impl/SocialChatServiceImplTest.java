@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.application.service.impl;
 
 import iuh.fit.socialservice.application.dto.request.CreateConversationCommand;
+import iuh.fit.socialservice.application.dto.request.SyncContextConversationCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
@@ -8,15 +9,20 @@ import iuh.fit.socialservice.application.port.persistence.MessageRepository;
 import iuh.fit.socialservice.application.port.websocket.SocialWebSocketPublisher;
 import iuh.fit.socialservice.application.service.SocialBlockService;
 import iuh.fit.socialservice.domain.entity.Conversation;
+import iuh.fit.socialservice.domain.entity.ConversationMember;
+import iuh.fit.socialservice.domain.enums.MemberRole;
 import iuh.fit.socialservice.domain.enums.ConversationType;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -151,5 +157,105 @@ class SocialChatServiceImplTest {
         org.mockito.Mockito.verify(conversationRepository).save(captor.capture());
         assertThat(captor.getValue().getMembers())
                 .allSatisfy(member -> assertThat(member.getMemberId()).isNull());
+    }
+
+    private Conversation clubConversation(UUID contextId, UUID ownerId, List<UUID> memberIds) {
+        LocalDateTime now = LocalDateTime.now();
+        List<ConversationMember> members = new java.util.ArrayList<>();
+        members.add(ConversationMember.builder().memberId(UUID.randomUUID()).userId(ownerId)
+                .role(MemberRole.OWNER).joinedAt(now).build());
+        memberIds.forEach(userId -> members.add(ConversationMember.builder()
+                .memberId(UUID.randomUUID()).userId(userId).role(MemberRole.MEMBER).joinedAt(now).build()));
+        return Conversation.builder()
+                .conversationId(UUID.randomUUID()).type(ConversationType.CLUB).name("CLB test")
+                .contextId(contextId).members(members).createdAt(now).updatedAt(now).build();
+    }
+
+    @Test
+    @DisplayName("chưa có chat nhóm thì tạo mới kèm chủ câu lạc bộ")
+    void syncCreatesConversationWhenMissing() throws ServiceException {
+        UUID clubId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID memberId = UUID.randomUUID();
+        when(conversationRepository.findByContextId(clubId)).thenReturn(Optional.empty());
+
+        service.syncContextConversation(SyncContextConversationCommand.builder()
+                .contextId(clubId).type(ConversationType.CLUB).name("CLB Sài Gòn")
+                .ownerId(ownerId).memberIds(List.of(memberId)).build());
+
+        ArgumentCaptor<Conversation> captor = ArgumentCaptor.forClass(Conversation.class);
+        org.mockito.Mockito.verify(conversationRepository).save(captor.capture());
+        Conversation saved = captor.getValue();
+        assertThat(saved.getContextId()).isEqualTo(clubId);
+        assertThat(saved.getType()).isEqualTo(ConversationType.CLUB);
+        assertThat(saved.getMembers()).extracting(ConversationMember::getUserId)
+                .containsExactlyInAnyOrder(ownerId, memberId);
+        assertThat(saved.getMembers()).filteredOn(item -> item.getUserId().equals(ownerId))
+                .allSatisfy(item -> assertThat(item.getRole()).isEqualTo(MemberRole.OWNER));
+    }
+
+    @Test
+    @DisplayName("gọi lại với cùng danh sách thì không nhân đôi thành viên")
+    void syncIsIdempotent() throws ServiceException {
+        UUID clubId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID memberId = UUID.randomUUID();
+        Conversation existing = clubConversation(clubId, ownerId, List.of(memberId));
+        when(conversationRepository.findByContextId(clubId)).thenReturn(Optional.of(existing));
+
+        service.syncContextConversation(SyncContextConversationCommand.builder()
+                .contextId(clubId).type(ConversationType.CLUB).name("CLB test")
+                .ownerId(ownerId).memberIds(List.of(memberId)).build());
+
+        assertThat(existing.getMembers()).hasSize(2);
+        assertThat(existing.getMembers()).allSatisfy(item -> assertThat(item.getLeftAt()).isNull());
+    }
+
+    @Test
+    @DisplayName("người rời câu lạc bộ được đánh dấu đã rời chứ không bị xóa khỏi lịch sử")
+    void syncMarksRemovedMemberAsLeft() throws ServiceException {
+        UUID clubId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID leaving = UUID.randomUUID();
+        Conversation existing = clubConversation(clubId, ownerId, List.of(leaving));
+        when(conversationRepository.findByContextId(clubId)).thenReturn(Optional.of(existing));
+
+        service.syncContextConversation(SyncContextConversationCommand.builder()
+                .contextId(clubId).type(ConversationType.CLUB).name("CLB test")
+                .ownerId(ownerId).memberIds(List.of()).build());
+
+        assertThat(existing.getMembers()).hasSize(2);
+        assertThat(existing.getMembers()).filteredOn(item -> item.getUserId().equals(leaving))
+                .allSatisfy(item -> assertThat(item.getLeftAt()).isNotNull());
+    }
+
+    @Test
+    @DisplayName("thành viên quay lại được mở khóa thay vì thêm bản ghi mới")
+    void syncRejoinsPreviousMember() throws ServiceException {
+        UUID clubId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID returning = UUID.randomUUID();
+        Conversation existing = clubConversation(clubId, ownerId, List.of(returning));
+        existing.getMembers().stream()
+                .filter(item -> item.getUserId().equals(returning))
+                .forEach(item -> item.setLeftAt(LocalDateTime.now().minusDays(1)));
+        when(conversationRepository.findByContextId(clubId)).thenReturn(Optional.of(existing));
+
+        service.syncContextConversation(SyncContextConversationCommand.builder()
+                .contextId(clubId).type(ConversationType.CLUB).name("CLB test")
+                .ownerId(ownerId).memberIds(List.of(returning)).build());
+
+        assertThat(existing.getMembers()).hasSize(2);
+        assertThat(existing.getMembers()).filteredOn(item -> item.getUserId().equals(returning))
+                .allSatisfy(item -> assertThat(item.getLeftAt()).isNull());
+    }
+
+    @Test
+    @DisplayName("thiếu chủ sở hữu thì từ chối đồng bộ")
+    void syncRequiresOwner() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                service.syncContextConversation(SyncContextConversationCommand.builder()
+                        .contextId(UUID.randomUUID()).name("CLB test").build()))
+                .isInstanceOf(ServiceException.class);
     }
 }

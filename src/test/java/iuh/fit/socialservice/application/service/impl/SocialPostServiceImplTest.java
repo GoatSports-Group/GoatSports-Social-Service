@@ -16,6 +16,7 @@ import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import iuh.fit.socialservice.domain.enums.ReactionType;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +51,8 @@ class SocialPostServiceImplTest {
     private UserBlockRepository userBlockRepository;
     @Mock
     private FollowRepository followRepository;
+    @Mock
+    private iuh.fit.socialservice.application.port.external.StorageKeyPromoter storageKeyPromoter;
 
     private SocialPostServiceImpl service;
 
@@ -62,8 +65,14 @@ class SocialPostServiceImplTest {
                 shareRepository,
                 friendshipRepository,
                 userBlockRepository,
-                followRepository
+                followRepository,
+                storageKeyPromoter
         );
+        // Mac dinh: storage tra lai dung khoa da gui, de test cu khong phu thuoc vao promote.
+        org.mockito.Mockito.lenient()
+                .when(storageKeyPromoter.promote(org.mockito.ArgumentMatchers.anyList(),
+                        org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(call -> call.getArgument(0));
     }
 
     @Test
@@ -139,5 +148,34 @@ class SocialPostServiceImplTest {
         service.likePost(postId, actorId);
 
         verify(reactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("bài viết lưu khóa vĩnh viễn, không lưu khóa temp/")
+    void createPostStoresPromotedStorageKey() throws ServiceException {
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post post = invocation.getArgument(0);
+            post.setPostId(UUID.randomUUID());
+            return post;
+        });
+        org.mockito.Mockito.when(storageKeyPromoter.promote(org.mockito.ArgumentMatchers.anyList(),
+                        org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(List.of("social-posts/photo.jpg"));
+
+        service.createPost(SavePostCommand.builder()
+                .actorId(UUID.randomUUID())
+                .content("Có ảnh")
+                .visibility(PostVisibility.PUBLIC)
+                .attachments(List.of(SavePostCommand.AttachmentItem.builder()
+                        .storageKey("temp/social-posts/photo.jpg")
+                        .type(AttachmentType.IMAGE)
+                        .displayOrder(0)
+                        .build()))
+                .build());
+
+        ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(captor.capture());
+        assertThat(captor.getValue().getAttachments()).singleElement().satisfies(attachment ->
+                assertThat(attachment.getStorageKey()).isEqualTo("social-posts/photo.jpg"));
     }
 }
