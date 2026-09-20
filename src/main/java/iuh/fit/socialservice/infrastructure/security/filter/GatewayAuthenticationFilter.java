@@ -24,7 +24,7 @@ import java.util.stream.Stream;
 public class GatewayAuthenticationFilter extends OncePerRequestFilter {
     private final byte[] gatewaySecret;
 
-    public GatewayAuthenticationFilter(@Value("${app.gateway.secret}") String gatewaySecret) {
+    public GatewayAuthenticationFilter(@Value("${app.jwt.secret}") String gatewaySecret) {
         this.gatewaySecret = gatewaySecret.getBytes(StandardCharsets.UTF_8);
     }
 
