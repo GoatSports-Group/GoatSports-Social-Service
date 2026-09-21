@@ -52,11 +52,18 @@ public class DemoDataSeeder implements CommandLineRunner {
                     new MemberSeed("huy.danggia@goatsports.vn", "OWNER"),
                     new MemberSeed("tung.vuthanh@goatsports.vn", "ADMIN"),
                     new MemberSeed("minh.hoangnhat@goatsports.vn", "MEMBER"),
-                    new MemberSeed("dang.trinhhai@goatsports.vn", "MEMBER"))),
+                    new MemberSeed("dang.trinhhai@goatsports.vn", "MEMBER"),
+                    new MemberSeed("anh.ngoduc@goatsports.vn", "MEMBER"),
+                    new MemberSeed("minh.nguyenvan@goatsports.vn", "MEMBER"),
+                    new MemberSeed("phuc.tranhoang@goatsports.vn", "MEMBER"),
+                    new MemberSeed("duc.ngominh@goatsports.vn", "MEMBER"))),
             new ClubChatSeed("CLB Cầu Lông Phú Nhuận", List.of(
                     new MemberSeed("linh.buikhanh@goatsports.vn", "OWNER"),
                     new MemberSeed("trang.lythu@goatsports.vn", "MEMBER"),
-                    new MemberSeed("ngoc.caobao@goatsports.vn", "MEMBER")))
+                    new MemberSeed("ngoc.caobao@goatsports.vn", "MEMBER"),
+                    new MemberSeed("an.nguyenvan@goatsports.vn", "MEMBER"),
+                    new MemberSeed("nam.lehoang@goatsports.vn", "MEMBER"),
+                    new MemberSeed("kiet.dotuan@goatsports.vn", "MEMBER")))
     );
 
     @Override
