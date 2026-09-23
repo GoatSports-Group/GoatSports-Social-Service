@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.exception;
 
+import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.dto.response.base.BaseResponse;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,11 @@ import java.util.List;
 @ControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(UnauthenticatedException.class)
+    ResponseEntity<BaseResponse<Object>> handleUnauthenticated(UnauthenticatedException exception) {
+        return errorResponse(HttpStatus.UNAUTHORIZED, exception.getMessage(), "Chưa đăng nhập");
+    }
 
     @ExceptionHandler(ServiceException.class)
     ResponseEntity<BaseResponse<Object>> handleServiceException(ServiceException exception) {

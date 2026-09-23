@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.dto.request.SaveCommentCommand;
 import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
@@ -271,7 +272,7 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     private void ensureVisible(Post post, UUID viewerId) throws ServiceException {
         if (post.getVisibility() == PostVisibility.PUBLIC) return;
-        if (viewerId == null) throw new ServiceException("Bạn cần đăng nhập để xem bài viết này");
+        if (viewerId == null) throw new UnauthenticatedException("Bạn cần đăng nhập để xem bài viết này");
         if (viewerId.equals(post.getAuthorId())) return;
         if (blockedUserIds(viewerId).contains(post.getAuthorId())) {
             throw new ServiceException("Bài viết không khả dụng");

@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.presentation.controller;
 
+import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialFollowService;
@@ -60,7 +61,7 @@ public class SocialUserFollowController {
 
     private UUID requiredUserId() throws ServiceException {
         UUID userId = currentUserIdOrNull();
-        if (userId == null) throw new ServiceException("Phien dang nhap da het han");
+        if (userId == null) throw new UnauthenticatedException("Phiên đăng nhập đã hết hạn");
         return userId;
     }
 
