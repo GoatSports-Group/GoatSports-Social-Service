@@ -228,7 +228,7 @@ public class SocialChatServiceImpl implements SocialChatService {
     ) throws ServiceException {
         Conversation conversation = requireConversation(conversationId);
         requireActiveMember(conversation, userId);
-        return messageRepository.findByConversationId(conversationId, pageable).map(this::mapToMessageResponse);
+        return messageRepository.findByConversationId(conversationId, pageable).map(ChatResponseMapper::toMessageResponse);
     }
 
     @Override
@@ -238,6 +238,7 @@ public class SocialChatServiceImpl implements SocialChatService {
         requireActiveMember(conversation, command.getSenderId());
         command.validate();
 
+        // Chat 1-1: một trong hai người đã chặn người kia thì không gửi được nữa (chặn có hiệu lực hai chiều).
         if (conversation.getType() == ConversationType.DIRECT) {
             for (ConversationMember member : conversation.getMembers()) {
                 if (member.getLeftAt() == null && !member.getUserId().equals(command.getSenderId()) &&
@@ -247,6 +248,8 @@ public class SocialChatServiceImpl implements SocialChatService {
             }
         }
 
+        // Chống gửi trùng khi client gửi lại (mất mạng, reconnect WebSocket): cùng clientMessageId của cùng người gửi
+        // thì trả lại tin đã lưu. Có unique index (senderId, clientMessageId) ở MongoDB làm chốt chặn cuối.
         String clientMessageId = command.getClientMessageId() == null || command.getClientMessageId().isBlank()
                 ? UUID.randomUUID().toString()
                 : command.getClientMessageId().trim();
@@ -254,7 +257,7 @@ public class SocialChatServiceImpl implements SocialChatService {
                 command.getSenderId(),
                 clientMessageId
         );
-        if (duplicate.isPresent()) return mapToMessageResponse(duplicate.get());
+        if (duplicate.isPresent()) return ChatResponseMapper.toMessageResponse(duplicate.get());
 
         if (command.getReplyToMessageId() != null) {
             Message repliedMessage = messageRepository.findById(command.getReplyToMessageId())
@@ -304,7 +307,7 @@ public class SocialChatServiceImpl implements SocialChatService {
         conversation.setUpdatedAt(now);
         conversationRepository.save(conversation);
         webSocketPublisher.publishMessageToConversation(command.getConversationId(), savedMessage);
-        return mapToMessageResponse(savedMessage);
+        return ChatResponseMapper.toMessageResponse(savedMessage);
     }
 
     @Override
@@ -345,63 +348,6 @@ public class SocialChatServiceImpl implements SocialChatService {
         Message lastMessage = conversation.getLastMessageId() == null
                 ? null
                 : messageRepository.findById(conversation.getLastMessageId()).orElse(null);
-        List<ConversationResponseCommand.MemberItemResponse> members = conversation.getMembers().stream()
-                .map(member -> ConversationResponseCommand.MemberItemResponse.builder()
-                        .userId(member.getUserId())
-                        .role(member.getRole())
-                        .joinedAt(member.getJoinedAt())
-                        .lastReadMessageId(member.getLastReadMessageId())
-                        .leftAt(member.getLeftAt())
-                        .build())
-                .toList();
-        return ConversationResponseCommand.builder()
-                .conversationId(conversation.getConversationId())
-                .type(conversation.getType())
-                .name(conversation.getName())
-                .avatarUrl(conversation.getAvatarUrl())
-                .contextId(conversation.getContextId())
-                .lastMessageId(conversation.getLastMessageId())
-                .lastMessageContent(lastMessage == null ? null : lastMessage.getContent())
-                .lastMessageAt(conversation.getLastMessageAt())
-                .lastSenderId(lastMessage == null ? null : lastMessage.getSenderId())
-                .members(members)
-                .createdAt(conversation.getCreatedAt())
-                .updatedAt(conversation.getUpdatedAt())
-                .build();
-    }
-
-    private MessageResponseCommand mapToMessageResponse(Message message) {
-        List<MessageResponseCommand.AttachmentResponseItem> attachments = Optional.ofNullable(message.getAttachments())
-                .orElseGet(List::of).stream()
-                .map(attachment -> MessageResponseCommand.AttachmentResponseItem.builder()
-                        .attachmentId(attachment.getAttachmentId())
-                        .storageKey(attachment.getStorageKey())
-                        .type(attachment.getType())
-                        .fileName(attachment.getFileName())
-                        .fileSize(attachment.getFileSize())
-                        .build()).toList();
-        List<MessageResponseCommand.ReceiptResponseItem> receipts = Optional.ofNullable(message.getReceipts())
-                .orElseGet(List::of).stream()
-                .map(receipt -> MessageResponseCommand.ReceiptResponseItem.builder()
-                        .receiptId(receipt.getReceiptId())
-                        .userId(receipt.getUserId())
-                        .status(receipt.getStatus())
-                        .occurredAt(receipt.getOccurredAt())
-                        .build()).toList();
-        return MessageResponseCommand.builder()
-                .messageId(message.getMessageId())
-                .conversationId(message.getConversationId())
-                .senderId(message.getSenderId())
-                .clientMessageId(message.getClientMessageId())
-                .content(message.getContent())
-                .type(message.getType())
-                .status(message.getStatus())
-                .replyToMessageId(message.getReplyToMessageId())
-                .attachments(attachments)
-                .receipts(receipts)
-                .deleted(message.getDeleted())
-                .sentAt(message.getSentAt())
-                .editedAt(message.getEditedAt())
-                .build();
+        return ChatResponseMapper.toConversationResponse(conversation, lastMessage);
     }
 }
