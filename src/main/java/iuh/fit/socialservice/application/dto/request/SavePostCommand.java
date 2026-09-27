@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.application.dto.request;
 
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
@@ -27,7 +28,7 @@ public class SavePostCommand {
     private PostVisibility visibility;
     private PostSport sport;
     /** Nguoi duoc nhac ten (@) trong bai. */
-    private List<UUID> mentions;
+    private List<Mention> mentions;
     private List<AttachmentItem> attachments;
 
     public void validate() throws ServiceException {

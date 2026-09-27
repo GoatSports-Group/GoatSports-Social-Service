@@ -5,6 +5,8 @@ import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
+import iuh.fit.socialservice.domain.entity.Mention;
+import iuh.fit.socialservice.presentation.request.MentionRequest;
 import iuh.fit.socialservice.presentation.request.SaveCommentRequest;
 import iuh.fit.socialservice.presentation.request.SavePostRequest;
 import iuh.fit.socialservice.presentation.request.SharePostRequest;
@@ -23,7 +25,7 @@ public class SocialPostConverter {
                 .content(request.getContent())
                 .visibility(request.getVisibility())
                 .sport(request.getSport())
-                .mentions(request.getMentions())
+                .mentions(toMentions(request.getMentions()))
                 .attachments(request.getAttachments() == null ? List.of()
                         : request.getAttachments().stream().map(item -> SavePostCommand.AttachmentItem.builder()
                                 .storageKey(item.getStorageKey())
@@ -38,6 +40,7 @@ public class SocialPostConverter {
                 .actorId(actorId)
                 .parentCommentId(request.getParentCommentId())
                 .content(request.getContent())
+                .mentions(toMentions(request.getMentions()))
                 .build();
     }
 
@@ -87,9 +90,15 @@ public class SocialPostConverter {
                 .authorId(command.getAuthorId())
                 .parentCommentId(command.getParentCommentId())
                 .content(command.getContent())
+                .mentions(command.getMentions())
                 .status(command.getStatus())
                 .createdAt(command.getCreatedAt())
                 .updatedAt(command.getUpdatedAt())
                 .build();
+    }
+
+    public List<Mention> toMentions(List<MentionRequest> requests) {
+        if (requests == null) return List.of();
+        return requests.stream().map(item -> new Mention(item.getUserId(), item.getName())).toList();
     }
 }

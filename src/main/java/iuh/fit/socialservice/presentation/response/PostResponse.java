@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.presentation.response;
 
+import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
@@ -37,7 +38,7 @@ public class PostResponse {
     private LocalDateTime publishedAt;
     private List<AttachmentItem> attachments;
     private List<String> tags;
-    private List<UUID> mentions;
+    private List<Mention> mentions;
     private long likeCount;
     private long commentCount;
     private long shareCount;

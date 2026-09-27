@@ -53,5 +53,5 @@ public class PostEntity {
     @Builder.Default
     private List<String> tags = new ArrayList<>();
     @Builder.Default
-    private List<String> mentionedUserIds = new ArrayList<>();
+    private List<MentionDoc> mentions = new ArrayList<>();
 }

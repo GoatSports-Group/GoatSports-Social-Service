@@ -15,6 +15,7 @@ import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.port.persistence.PostShareRepository;
 import iuh.fit.socialservice.application.port.persistence.UserBlockRepository;
 import iuh.fit.socialservice.application.service.SocialPostService;
+import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostComment;
 import iuh.fit.socialservice.domain.entity.PostReaction;
@@ -184,12 +185,14 @@ class SocialPostServiceImplTest {
 
         PostResponseCommand response = service.createPost(SavePostCommand.builder()
                 .actorId(author)
-                .content("Cảm ơn team hôm nay!")
+                .content("Cảm ơn @Bảo, @Hà, @Tôi, @Người chặn hôm nay!")
                 .visibility(PostVisibility.FRIENDS)
-                .mentions(List.of(friend, stranger, author, blocked, friend))
+                .mentions(List.of(new Mention(friend, "Bảo"), new Mention(stranger, "Hà"), new Mention(author, "Tôi"),
+                        new Mention(blocked, "Người chặn"), new Mention(friend, "Bảo"),
+                        new Mention(UUID.randomUUID(), "Không có trong bài")))
                 .build());
 
-        assertThat(response.getMentions()).containsExactly(friend, stranger);
+        assertThat(response.getMentions()).extracting(Mention::userId).containsExactly(friend, stranger);
         verify(eventPublisher).publish(eq(SocialEventPublisher.POST_MENTIONED), eq(friend), eq(author), any(), anyMap(),
                 anyString());
         // Bai chi ban be xem: nguoi la duoc nhac nhung khong xem duoc thi khong bao.
@@ -202,15 +205,59 @@ class SocialPostServiceImplTest {
         UUID first = UUID.randomUUID();
         UUID second = UUID.randomUUID();
         Post existing = post(author, PostVisibility.PUBLIC);
-        existing.setMentionedUserIds(List.of(first));
+        existing.setMentions(List.of(new Mention(first, "An")));
         when(postRepository.findById(existing.getPostId())).thenReturn(Optional.of(existing));
         savesReturnTheirArgument();
 
         service.updatePost(existing.getPostId(), SavePostCommand.builder()
-                .actorId(author).content("Cập nhật đội hình").visibility(PostVisibility.PUBLIC)
-                .mentions(List.of(first, second)).build());
+                .actorId(author).content("Cập nhật đội hình: @An và @Bình").visibility(PostVisibility.PUBLIC)
+                .mentions(List.of(new Mention(first, "An"), new Mention(second, "Bình"))).build());
 
         verify(eventPublisher).publish(eq(SocialEventPublisher.POST_MENTIONED), eq(second), any(), any(), anyMap(), anyString());
+        verify(eventPublisher, never()).publish(anyString(), eq(first), any(), any(), anyMap(), any());
+    }
+
+    @Test
+    @DisplayName("nhắc tên trong bình luận: không báo trùng người vừa nhận thông báo bình luận")
+    void commentMentionsNotifyOnlyPeopleNotAlreadyTold() throws ServiceException {
+        UUID author = UUID.randomUUID();
+        UUID commenter = UUID.randomUUID();
+        UUID teammate = UUID.randomUUID();
+        Post target = post(author, PostVisibility.PUBLIC);
+        when(postRepository.findById(target.getPostId())).thenReturn(Optional.of(target));
+        when(commentRepository.save(any(PostComment.class))).thenAnswer(call -> {
+            PostComment saved = call.getArgument(0);
+            saved.setCommentId(UUID.randomUUID());
+            return saved;
+        });
+
+        service.createComment(target.getPostId(), SaveCommentCommand.builder()
+                .actorId(commenter).content("@Chủ bài ơi, rủ thêm @Khoa nhé #keotoi")
+                .mentions(List.of(new Mention(author, "Chủ bài"), new Mention(teammate, "Khoa"))).build());
+
+        verify(eventPublisher).publish(eq(SocialEventPublisher.POST_COMMENTED), eq(author), eq(commenter), any(), anyMap(), isNull());
+        verify(eventPublisher).publish(eq(SocialEventPublisher.COMMENT_MENTIONED), eq(teammate), eq(commenter), any(), anyMap(),
+                anyString());
+        verify(eventPublisher, never()).publish(eq(SocialEventPublisher.COMMENT_MENTIONED), eq(author), any(), any(), anyMap(), any());
+    }
+
+    @Test
+    void editingACommentOnlyNotifiesNewlyMentionedPeople() throws ServiceException {
+        UUID commenter = UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        Post target = post(UUID.randomUUID(), PostVisibility.PUBLIC);
+        PostComment comment = PostComment.builder().commentId(UUID.randomUUID()).postId(target.getPostId())
+                .authorId(commenter).content("@An").status(PostStatus.PUBLISHED)
+                .mentions(List.of(new Mention(first, "An"))).build();
+        when(commentRepository.findById(comment.getCommentId())).thenReturn(Optional.of(comment));
+        when(commentRepository.save(any(PostComment.class))).thenAnswer(call -> call.getArgument(0));
+        when(postRepository.findById(target.getPostId())).thenReturn(Optional.of(target));
+
+        service.updateComment(comment.getCommentId(), commenter, "@An và @Bình",
+                List.of(new Mention(first, "An"), new Mention(second, "Bình")));
+
+        verify(eventPublisher).publish(eq(SocialEventPublisher.COMMENT_MENTIONED), eq(second), any(), any(), anyMap(), anyString());
         verify(eventPublisher, never()).publish(anyString(), eq(first), any(), any(), anyMap(), any());
     }
 

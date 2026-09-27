@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import iuh.fit.socialservice.domain.entity.Mention;
+
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -21,6 +24,7 @@ public class PostCommentResponse {
     private UUID authorId;
     private UUID parentCommentId;
     private String content;
+    private List<Mention> mentions;
     private PostStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

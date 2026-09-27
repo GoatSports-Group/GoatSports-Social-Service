@@ -13,6 +13,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -35,6 +37,8 @@ public class PostCommentEntity {
     private String authorId;
     private String parentCommentId;
     private String content;
+    @Builder.Default
+    private List<MentionDoc> mentions = new ArrayList<>();
     private PostStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -6,7 +6,12 @@ import iuh.fit.socialservice.infrastructure.persistence.entity.PostAttachmentDoc
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostEntity;
 import org.springframework.stereotype.Component;
 
+import iuh.fit.socialservice.domain.entity.Mention;
+import iuh.fit.socialservice.infrastructure.persistence.entity.MentionDoc;
+
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -27,8 +32,7 @@ public class PostEntityMapper {
                 .attachments(entity.getAttachments() == null ? Collections.emptyList()
                         : entity.getAttachments().stream().map(this::toDomain).toList())
                 .tags(entity.getTags() == null ? Collections.emptyList() : entity.getTags())
-                .mentionedUserIds(entity.getMentionedUserIds() == null ? Collections.emptyList()
-                        : entity.getMentionedUserIds().stream().map(this::toUuid).toList())
+                .mentions(toMentions(entity.getMentions()))
                 .build();
     }
 
@@ -48,8 +52,7 @@ public class PostEntityMapper {
                 .attachments(domain.getAttachments() == null ? Collections.emptyList()
                         : domain.getAttachments().stream().map(this::toDocument).toList())
                 .tags(domain.getTags() == null ? Collections.emptyList() : domain.getTags())
-                .mentionedUserIds(domain.getMentionedUserIds() == null ? Collections.emptyList()
-                        : domain.getMentionedUserIds().stream().map(this::toString).toList())
+                .mentions(toMentionDocs(domain.getMentions()))
                 .build();
     }
 
@@ -69,6 +72,21 @@ public class PostEntityMapper {
                 .type(attachment.getType())
                 .displayOrder(attachment.getDisplayOrder())
                 .build();
+    }
+
+    static List<Mention> toMentions(List<MentionDoc> docs) {
+        if (docs == null) return new ArrayList<>();
+        return docs.stream()
+                .filter(doc -> doc.getUserId() != null)
+                .map(doc -> new Mention(UUID.fromString(doc.getUserId()), doc.getName()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    static List<MentionDoc> toMentionDocs(List<Mention> mentions) {
+        if (mentions == null) return new ArrayList<>();
+        return mentions.stream()
+                .map(mention -> new MentionDoc(mention.userId().toString(), mention.name()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 
     private UUID toUuid(String value) {

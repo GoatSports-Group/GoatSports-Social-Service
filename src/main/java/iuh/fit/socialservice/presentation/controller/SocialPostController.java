@@ -148,7 +148,8 @@ public class SocialPostController {
             @Valid @RequestBody UpdateCommentRequest request
     ) throws ServiceException {
         return ResponseEntity.ok(postConverter.toResponse(
-                postService.updateComment(commentId, requiredUserId(), request.getContent())
+                postService.updateComment(commentId, requiredUserId(), request.getContent(),
+                        postConverter.toMentions(request.getMentions()))
         ));
     }
 

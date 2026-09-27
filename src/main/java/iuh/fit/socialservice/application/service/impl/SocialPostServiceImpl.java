@@ -14,6 +14,7 @@ import iuh.fit.socialservice.application.port.persistence.PostReactionRepository
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.service.SocialPostService;
 import iuh.fit.socialservice.application.service.impl.PostViewAssembler.Viewer;
+import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
 import iuh.fit.socialservice.domain.entity.PostComment;
@@ -21,6 +22,7 @@ import iuh.fit.socialservice.domain.entity.PostReaction;
 import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import iuh.fit.socialservice.domain.enums.ReactionType;
+import iuh.fit.socialservice.domain.service.PostMentions;
 import iuh.fit.socialservice.domain.service.PostTags;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -107,9 +110,9 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .publishedAt(now)
                 .attachments(toAttachments(command.getAttachments()))
                 .tags(PostTags.extract(content))
-                .mentionedUserIds(mentions(command.getMentions(), actor))
+                .mentions(PostMentions.sanitize(command.getMentions(), content, actorId, actor.blockedIds()))
                 .build());
-        notifyMentions(post, List.of());
+        notifyPostMentions(post, List.of());
         return assembler.toResponse(post, actor);
     }
 
@@ -121,7 +124,7 @@ public class SocialPostServiceImpl implements SocialPostService {
             throw new ServiceException("Bài viết đã bị xóa");
         }
         Viewer actor = assembler.viewer(actorId);
-        List<UUID> previousMentions = post.getMentionedUserIds();
+        List<Mention> previousMentions = post.getMentions();
         if (post.getSharedPostId() != null) {
             // Bai chia se chi sua duoc loi dan va quyen rieng tu; noi dung chinh thuoc bai goc.
             if (command.getVisibility() == null) {
@@ -136,10 +139,10 @@ public class SocialPostServiceImpl implements SocialPostService {
         }
         post.setVisibility(command.getVisibility());
         post.setTags(PostTags.extract(post.getContent()));
-        post.setMentionedUserIds(mentions(command.getMentions(), actor));
+        post.setMentions(PostMentions.sanitize(command.getMentions(), post.getContent(), actorId, actor.blockedIds()));
         post.setUpdatedAt(LocalDateTime.now());
         Post saved = postRepository.save(post);
-        notifyMentions(saved, previousMentions);
+        notifyPostMentions(saved, previousMentions);
         return assembler.toResponse(saved, actor);
     }
 
@@ -255,29 +258,41 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .authorId(actor.id())
                 .parentCommentId(command.getParentCommentId())
                 .content(content)
+                .mentions(PostMentions.sanitize(command.getMentions(), content, actor.id(), actor.blockedIds()))
                 .status(PostStatus.PUBLISHED)
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
         String snippet = snippet(content);
         notify(SocialEventPublisher.POST_COMMENTED, post.getAuthorId(), actor.id(), post, snippet, null);
+        Set<UUID> alreadyTold = new HashSet<>(Set.of(post.getAuthorId()));
         if (parent != null && !parent.getAuthorId().equals(post.getAuthorId())
                 && !actor.blockedIds().contains(parent.getAuthorId())) {
             notify(SocialEventPublisher.COMMENT_REPLIED, parent.getAuthorId(), actor.id(), post, snippet, null);
+            alreadyTold.add(parent.getAuthorId());
         }
+        notifyCommentMentions(post, saved, List.of(), alreadyTold);
         return toResponse(saved);
     }
 
     @Override
-    public PostCommentResponseCommand updateComment(UUID commentId, UUID actorId, String content)
+    public PostCommentResponseCommand updateComment(UUID commentId, UUID actorId, String content, List<Mention> mentions)
             throws ServiceException {
         PostComment comment = ownedComment(commentId, requireActor(actorId));
         if (comment.getStatus() != PostStatus.PUBLISHED) {
             throw new ServiceException("Bình luận không còn khả dụng");
         }
-        comment.setContent(requiredText(content, "Nội dung bình luận không được để trống", 1000));
+        Viewer actor = assembler.viewer(actorId);
+        List<Mention> previous = comment.getMentions();
+        String text = requiredText(content, "Nội dung bình luận không được để trống", 1000);
+        comment.setContent(text);
+        comment.setMentions(PostMentions.sanitize(mentions, text, actorId, actor.blockedIds()));
         comment.setUpdatedAt(LocalDateTime.now());
-        return toResponse(commentRepository.save(comment));
+        PostComment saved = commentRepository.save(comment);
+        postRepository.findById(saved.getPostId())
+                .filter(post -> post.getStatus() == PostStatus.PUBLISHED)
+                .ifPresent(post -> notifyCommentMentions(post, saved, previous, Set.of()));
+        return toResponse(saved);
     }
 
     @Override
@@ -308,22 +323,21 @@ public class SocialPostServiceImpl implements SocialPostService {
                 PostTags.normalize(filter.tag()));
     }
 
-    /** Bo trung, bo chinh minh va nguoi co quan he chan voi nguoi dang. */
-    private static List<UUID> mentions(List<UUID> requested, Viewer actor) {
-        if (requested == null) return List.of();
-        return requested.stream()
-                .filter(Objects::nonNull)
-                .filter(id -> !id.equals(actor.id()) && !actor.blockedIds().contains(id))
-                .distinct()
-                .toList();
-    }
-
     /** Chi bao nguoi moi duoc nhac va xem duoc bai; sua bai khong bao lai nguoi da nhac truoc do. */
-    private void notifyMentions(Post post, List<UUID> previous) {
-        for (UUID userId : post.getMentionedUserIds()) {
-            if (previous.contains(userId) || !assembler.viewer(userId).canView(post)) continue;
+    private void notifyPostMentions(Post post, List<Mention> previous) {
+        for (UUID userId : PostMentions.added(previous, post.getMentions())) {
+            if (!assembler.viewer(userId).canView(post)) continue;
             notify(SocialEventPublisher.POST_MENTIONED, userId, post.getAuthorId(), post, snippet(post.getContent()),
                     "mention:" + post.getPostId() + ":" + userId);
+        }
+    }
+
+    /** Nhu tren cho binh luan; bo nguoi vua nhan thong bao binh luan / tra loi de khong bao hai lan. */
+    private void notifyCommentMentions(Post post, PostComment comment, List<Mention> previous, Set<UUID> alreadyTold) {
+        for (UUID userId : PostMentions.added(previous, comment.getMentions())) {
+            if (alreadyTold.contains(userId) || !assembler.viewer(userId).canView(post)) continue;
+            notify(SocialEventPublisher.COMMENT_MENTIONED, userId, comment.getAuthorId(), post, snippet(comment.getContent()),
+                    "comment-mention:" + comment.getCommentId() + ":" + userId);
         }
     }
 
@@ -419,6 +433,7 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .authorId(comment.getAuthorId())
                 .parentCommentId(comment.getParentCommentId())
                 .content(comment.getContent())
+                .mentions(comment.getMentions())
                 .status(comment.getStatus())
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())

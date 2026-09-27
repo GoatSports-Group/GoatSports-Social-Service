@@ -160,7 +160,7 @@ public class PostViewAssembler {
                                 .build())
                         .toList())
                 .tags(post.getTags())
-                .mentions(post.getMentionedUserIds())
+                .mentions(post.getMentions())
                 .likeCount(counts.likes().getOrDefault(post.getPostId(), 0L))
                 .commentCount(counts.comments().getOrDefault(post.getPostId(), 0L))
                 .shareCount(counts.shares().getOrDefault(post.getPostId(), 0L))

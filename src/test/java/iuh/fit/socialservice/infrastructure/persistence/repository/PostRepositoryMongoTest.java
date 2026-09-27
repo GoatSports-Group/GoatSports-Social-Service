@@ -10,6 +10,7 @@ import iuh.fit.socialservice.domain.enums.PostVisibility;
 import iuh.fit.socialservice.domain.enums.ReactionType;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostShareEntity;
 import iuh.fit.socialservice.infrastructure.persistence.mapper.PostEntityMapper;
+import iuh.fit.socialservice.infrastructure.persistence.migration.ShareRowDedupeMigration;
 import iuh.fit.socialservice.infrastructure.persistence.mapper.PostReactionEntityMapper;
 import iuh.fit.socialservice.infrastructure.persistence.repository.mongo.MongoPostReactionRepository;
 import iuh.fit.socialservice.infrastructure.persistence.repository.mongo.MongoPostRepository;
@@ -167,5 +168,23 @@ class PostRepositoryMongoTest {
     @Test
     void emptyIdListSkipsTheQuery() {
         assertThat(posts.countPublishedShares(List.of())).isEmpty();
+    }
+
+    @Test
+    void cleanupDropsShareRowsAlreadyRepresentedBySharePosts() {
+        Post original = publish(stranger, PostVisibility.PUBLIC, "gốc", 30);
+        Post share = publish(viewer, PostVisibility.PUBLIC, null, 10);
+        share.setSharedPostId(original.getPostId());
+        posts.save(share);
+        for (UUID user : List.of(viewer, stranger)) {
+            template.save(PostShareEntity.builder().shareId(UUID.randomUUID().toString())
+                    .postId(original.getPostId().toString()).userId(user.toString()).sharedAt(LocalDateTime.now()).build());
+        }
+        ShareRowDedupeMigration cleanup = new ShareRowDedupeMigration(template);
+
+        // viewer's row duplicates their share post; stranger's row is a genuine old-style share.
+        assertThat(cleanup.removeRowsCoveredBySharePosts()).isEqualTo(1);
+        assertThat(cleanup.removeRowsCoveredBySharePosts()).as("idempotent").isZero();
+        assertThat(shares.countByPostIds(List.of(original.getPostId()))).containsEntry(original.getPostId(), 1L);
     }
 }

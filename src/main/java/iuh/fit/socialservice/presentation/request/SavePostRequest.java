@@ -32,9 +32,10 @@ public class SavePostRequest {
     /** Tuy chon; null nghia la bai khong gan mon. */
     private PostSport sport;
 
+    @Valid
     @Size(max = 20, message = "Mỗi bài viết nhắc tối đa 20 người")
     @Builder.Default
-    private List<UUID> mentions = new ArrayList<>();
+    private List<MentionRequest> mentions = new ArrayList<>();
 
     @Valid
     @Size(max = 10, message = "Mỗi bài viết được đính kèm tối đa 10 tệp")

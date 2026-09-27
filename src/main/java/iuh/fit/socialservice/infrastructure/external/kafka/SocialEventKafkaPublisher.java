@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -52,15 +54,30 @@ public class SocialEventKafkaPublisher implements SocialEventPublisher {
             envelope.put("actorId", actorId.toString());
             envelope.set("payload", body);
 
-            // JsonSerializer can nhan chinh object JSON; gui chuoi se bi serialize hai lan.
-            kafkaTemplate.send(topic, aggregateId.toString(), envelope)
-                    .whenComplete((result, error) -> {
-                        if (error != null) {
-                            log.warn("Không phát được sự kiện {}: {}", eventType, error.getMessage());
-                        }
-                    });
+            // Trong transaction (vd. ket ban, luu o Postgres): chi gui khi da commit, de rollback khong de lai
+            // thong bao ve mot loi moi khong ton tai. Ngoai transaction (bai viet, Mongo): gui ngay.
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        send(eventType, aggregateId, envelope);
+                    }
+                });
+            } else {
+                send(eventType, aggregateId, envelope);
+            }
         } catch (Exception exception) {
             log.warn("Không phát được sự kiện {}: {}", eventType, exception.getMessage());
         }
+    }
+
+    private void send(String eventType, UUID aggregateId, ObjectNode envelope) {
+        // JsonSerializer can nhan chinh object JSON; gui chuoi se bi serialize hai lan.
+        kafkaTemplate.send(topic, aggregateId.toString(), envelope)
+                .whenComplete((result, error) -> {
+                    if (error != null) {
+                        log.warn("Không phát được sự kiện {}: {}", eventType, error.getMessage());
+                    }
+                });
     }
 }

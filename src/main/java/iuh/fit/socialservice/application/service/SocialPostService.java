@@ -7,6 +7,7 @@ import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
+import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,7 +37,7 @@ public interface SocialPostService {
 
     PostCommentResponseCommand createComment(UUID postId, SaveCommentCommand command) throws ServiceException;
 
-    PostCommentResponseCommand updateComment(UUID commentId, UUID actorId, String content)
+    PostCommentResponseCommand updateComment(UUID commentId, UUID actorId, String content, List<Mention> mentions)
             throws ServiceException;
 
     void deleteComment(UUID commentId, UUID actorId) throws ServiceException;

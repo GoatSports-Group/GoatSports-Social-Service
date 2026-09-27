@@ -37,5 +37,5 @@ public class Post {
     @Builder.Default
     private List<String> tags = new ArrayList<>();
     @Builder.Default
-    private List<UUID> mentionedUserIds = new ArrayList<>();
+    private List<Mention> mentions = new ArrayList<>();
 }

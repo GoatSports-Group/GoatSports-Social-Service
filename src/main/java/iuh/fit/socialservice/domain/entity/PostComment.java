@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -21,6 +23,8 @@ public class PostComment {
     private UUID authorId;
     private UUID parentCommentId;
     private String content;
+    @Builder.Default
+    private List<Mention> mentions = new ArrayList<>();
     private PostStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
