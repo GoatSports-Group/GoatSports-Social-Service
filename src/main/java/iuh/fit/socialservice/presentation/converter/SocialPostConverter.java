@@ -5,13 +5,11 @@ import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
-import iuh.fit.socialservice.application.dto.response.PostShareResponseCommand;
 import iuh.fit.socialservice.presentation.request.SaveCommentRequest;
 import iuh.fit.socialservice.presentation.request.SavePostRequest;
 import iuh.fit.socialservice.presentation.request.SharePostRequest;
 import iuh.fit.socialservice.presentation.response.PostCommentResponse;
 import iuh.fit.socialservice.presentation.response.PostResponse;
-import iuh.fit.socialservice.presentation.response.PostShareResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -24,6 +22,7 @@ public class SocialPostConverter {
                 .actorId(actorId)
                 .content(request.getContent())
                 .visibility(request.getVisibility())
+                .sport(request.getSport())
                 .attachments(request.getAttachments() == null ? List.of()
                         : request.getAttachments().stream().map(item -> SavePostCommand.AttachmentItem.builder()
                                 .storageKey(item.getStorageKey())
@@ -45,16 +44,22 @@ public class SocialPostConverter {
         return SharePostCommand.builder()
                 .actorId(actorId)
                 .caption(request.getCaption())
+                .visibility(request.getVisibility())
                 .build();
     }
 
     public PostResponse toResponse(PostResponseCommand command) {
+        if (command == null) return null;
         return PostResponse.builder()
                 .postId(command.getPostId())
                 .authorId(command.getAuthorId())
                 .content(command.getContent())
                 .visibility(command.getVisibility())
                 .status(command.getStatus())
+                .sport(command.getSport())
+                .sharedPostId(command.getSharedPostId())
+                .sharedPost(toResponse(command.getSharedPost()))
+                .sharedPostUnavailable(command.isSharedPostUnavailable())
                 .createdAt(command.getCreatedAt())
                 .updatedAt(command.getUpdatedAt())
                 .publishedAt(command.getPublishedAt())
@@ -68,6 +73,7 @@ public class SocialPostConverter {
                 .commentCount(command.getCommentCount())
                 .shareCount(command.getShareCount())
                 .likedByCurrentUser(command.isLikedByCurrentUser())
+                .savedByCurrentUser(command.isSavedByCurrentUser())
                 .build();
     }
 
@@ -81,16 +87,6 @@ public class SocialPostConverter {
                 .status(command.getStatus())
                 .createdAt(command.getCreatedAt())
                 .updatedAt(command.getUpdatedAt())
-                .build();
-    }
-
-    public PostShareResponse toResponse(PostShareResponseCommand command) {
-        return PostShareResponse.builder()
-                .shareId(command.getShareId())
-                .postId(command.getPostId())
-                .userId(command.getUserId())
-                .caption(command.getCaption())
-                .sharedAt(command.getSharedAt())
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.persistence.entity;
 
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import lombok.AllArgsConstructor;
@@ -25,7 +26,8 @@ import java.util.List;
 @Document(collection = "posts")
 @CompoundIndexes({
         @CompoundIndex(name = "post_feed_idx", def = "{'status': 1, 'visibility': 1, 'publishedAt': -1}"),
-        @CompoundIndex(name = "post_author_created_idx", def = "{'authorId': 1, 'createdAt': -1}")
+        @CompoundIndex(name = "post_author_created_idx", def = "{'authorId': 1, 'createdAt': -1}"),
+        @CompoundIndex(name = "post_sport_feed_idx", def = "{'status': 1, 'sport': 1, 'publishedAt': -1}")
 })
 public class PostEntity {
     @Id
@@ -36,6 +38,8 @@ public class PostEntity {
     private String content;
     private PostVisibility visibility;
     private PostStatus status;
+    private PostSport sport;
+    private String sharedPostId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

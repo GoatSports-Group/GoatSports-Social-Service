@@ -25,7 +25,9 @@ import java.time.LocalDateTime;
                 def = "{'postId': 1, 'userId': 1, 'type': 1}",
                 unique = true
         ),
-        @CompoundIndex(name = "reaction_post_time_idx", def = "{'postId': 1, 'reactedAt': -1}")
+        @CompoundIndex(name = "reaction_post_time_idx", def = "{'postId': 1, 'reactedAt': -1}"),
+        // Danh sach "Da luu" cua mot nguoi, moi nhat truoc.
+        @CompoundIndex(name = "reaction_user_type_time_idx", def = "{'userId': 1, 'type': 1, 'reactedAt': -1}")
 })
 public class PostReactionEntity {
     @Id

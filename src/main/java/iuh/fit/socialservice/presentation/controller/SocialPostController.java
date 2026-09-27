@@ -4,6 +4,7 @@ import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialPostService;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialPostConverter;
 import iuh.fit.socialservice.presentation.request.SaveCommentRequest;
@@ -12,7 +13,6 @@ import iuh.fit.socialservice.presentation.request.SharePostRequest;
 import iuh.fit.socialservice.presentation.request.UpdateCommentRequest;
 import iuh.fit.socialservice.presentation.response.PostCommentResponse;
 import iuh.fit.socialservice.presentation.response.PostResponse;
-import iuh.fit.socialservice.presentation.response.PostShareResponse;
 import iuh.fit.socialservice.presentation.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,12 +46,31 @@ public class SocialPostController {
     @ApiMessage("Lấy bảng tin thành công")
     public ResponseEntity<PageResponse<PostResponse>> getFeed(
             @RequestParam(defaultValue = "false") boolean followingOnly,
+            @RequestParam(required = false) PostSport sport,
+            @RequestParam(required = false) UUID authorId,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), followingOnly, pageable)
+        SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId);
+        Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), filter, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
+    }
+
+    @GetMapping("/saved")
+    @ApiMessage("Lấy bài viết đã lưu thành công")
+    public ResponseEntity<PageResponse<PostResponse>> getSavedPosts(
+            @PageableDefault(size = 10) Pageable pageable
+    ) throws ServiceException {
+        Page<PostResponse> response = postService.getSavedPosts(requiredUserId(), pageable)
+                .map(postConverter::toResponse);
+        return ResponseEntity.ok(PageResponse.from(response));
+    }
+
+    @GetMapping("/authors/{authorId}/stats")
+    @ApiMessage("Lấy thống kê tác giả thành công")
+    public ResponseEntity<SocialPostService.AuthorStats> getAuthorStats(@PathVariable UUID authorId) {
+        return ResponseEntity.ok(postService.getAuthorStats(authorId, currentUserIdOrNull()));
     }
 
     @GetMapping("/{postId}")
@@ -143,9 +162,21 @@ public class SocialPostController {
         return ResponseEntity.ok(postConverter.toResponse(postService.unlikePost(postId, requiredUserId())));
     }
 
+    @PutMapping("/{postId}/save")
+    @ApiMessage("Lưu bài viết thành công")
+    public ResponseEntity<PostResponse> savePost(@PathVariable UUID postId) throws ServiceException {
+        return ResponseEntity.ok(postConverter.toResponse(postService.savePost(postId, requiredUserId())));
+    }
+
+    @DeleteMapping("/{postId}/save")
+    @ApiMessage("Bỏ lưu bài viết thành công")
+    public ResponseEntity<PostResponse> unsavePost(@PathVariable UUID postId) throws ServiceException {
+        return ResponseEntity.ok(postConverter.toResponse(postService.unsavePost(postId, requiredUserId())));
+    }
+
     @PostMapping("/{postId}/shares")
     @ApiMessage("Chia sẻ bài viết thành công")
-    public ResponseEntity<PostShareResponse> sharePost(
+    public ResponseEntity<PostResponse> sharePost(
             @PathVariable UUID postId,
             @Valid @RequestBody SharePostRequest request
     ) throws ServiceException {

@@ -5,15 +5,21 @@ import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
-import iuh.fit.socialservice.application.dto.response.PostShareResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 
 public interface SocialPostService {
-    Page<PostResponseCommand> getFeed(UUID viewerId, boolean followingOnly, Pageable pageable);
+    Page<PostResponseCommand> getFeed(UUID viewerId, FeedFilter filter, Pageable pageable);
+
+    /** Bai da luu cua nguoi xem, moi luu truoc. Bai khong con xem duoc bi bo qua. */
+    Page<PostResponseCommand> getSavedPosts(UUID viewerId, Pageable pageable) throws ServiceException;
+
+    /** So bai cua tac gia ma nguoi xem duoc thay, cung quy tac voi bang tin. */
+    AuthorStats getAuthorStats(UUID authorId, UUID viewerId);
 
     PostResponseCommand getPost(UUID postId, UUID viewerId) throws ServiceException;
 
@@ -37,5 +43,16 @@ public interface SocialPostService {
 
     PostResponseCommand unlikePost(UUID postId, UUID actorId) throws ServiceException;
 
-    PostShareResponseCommand sharePost(UUID postId, SharePostCommand command) throws ServiceException;
+    PostResponseCommand savePost(UUID postId, UUID actorId) throws ServiceException;
+
+    PostResponseCommand unsavePost(UUID postId, UUID actorId) throws ServiceException;
+
+    /** Tao mot bai chia se tro toi bai goc va tra ve bai moi. */
+    PostResponseCommand sharePost(UUID postId, SharePostCommand command) throws ServiceException;
+
+    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId) {
+    }
+
+    record AuthorStats(UUID authorId, long postCount) {
+    }
 }

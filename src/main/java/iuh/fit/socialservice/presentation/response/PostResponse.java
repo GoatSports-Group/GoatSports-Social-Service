@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.presentation.response;
 
 import iuh.fit.socialservice.domain.enums.AttachmentType;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,13 @@ public class PostResponse {
     private String content;
     private PostVisibility visibility;
     private PostStatus status;
+    private PostSport sport;
+    /** Bai goc khi day la bai chia se. */
+    private UUID sharedPostId;
+    /** Bai goc, chi co khi nguoi xem van duoc xem no. */
+    private PostResponse sharedPost;
+    /** Bai goc da bi xoa, bi an hoac nguoi xem khong co quyen xem. */
+    private boolean sharedPostUnavailable;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;
@@ -32,6 +40,7 @@ public class PostResponse {
     private long commentCount;
     private long shareCount;
     private boolean likedByCurrentUser;
+    private boolean savedByCurrentUser;
 
     @Getter
     @Setter

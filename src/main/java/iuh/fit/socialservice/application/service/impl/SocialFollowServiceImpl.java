@@ -3,16 +3,24 @@ package iuh.fit.socialservice.application.service.impl;
 import iuh.fit.socialservice.application.dto.response.UserFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.dto.response.VenueFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import iuh.fit.socialservice.application.port.persistence.FollowRepository;
+import iuh.fit.socialservice.application.port.persistence.FriendshipRepository;
+import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.port.persistence.UserBlockRepository;
 import iuh.fit.socialservice.application.service.SocialFollowService;
 import iuh.fit.socialservice.domain.entity.Follow;
 import iuh.fit.socialservice.domain.enums.FollowTargetType;
+import iuh.fit.socialservice.domain.enums.FriendshipStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -20,6 +28,9 @@ import java.util.UUID;
 public class SocialFollowServiceImpl implements SocialFollowService {
     private final FollowRepository followRepository;
     private final UserBlockRepository userBlockRepository;
+    private final FriendshipRepository friendshipRepository;
+    private final PostRepository postRepository;
+    private final SocialEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -74,6 +85,8 @@ public class SocialFollowServiceImpl implements SocialFollowService {
                     .targetType(FollowTargetType.USER)
                     .targetId(targetUserId)
                     .build());
+            eventPublisher.publish(SocialEventPublisher.USER_FOLLOWED, targetUserId, followerId, followerId,
+                    Map.of("followerId", followerId.toString()));
         }
         return userResponse(targetUserId, true);
     }
@@ -95,6 +108,25 @@ public class SocialFollowServiceImpl implements SocialFollowService {
         return followRepository.findByFollowerIdAndTargetType(followerId, FollowTargetType.USER).stream()
                 .map(Follow::getTargetId)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, int limit)
+            throws ServiceException {
+        if (viewerId == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
+        Set<UUID> excluded = new HashSet<>(getFollowingUserIds(viewerId));
+        excluded.add(viewerId);
+        friendshipRepository.findUserFriends(viewerId, FriendshipStatus.ACCEPTED).forEach(friendship -> {
+            excluded.add(friendship.getRequesterId());
+            excluded.add(friendship.getAddresseeId());
+        });
+        userBlockRepository.findRelatedToUser(viewerId).forEach(block -> {
+            excluded.add(block.getBlockerId());
+            excluded.add(block.getBlockedUserId());
+        });
+        return postRepository.findActiveAuthors(
+                LocalDateTime.now().minusDays(30), excluded, Math.max(1, Math.min(limit, 10)));
     }
 
     private void requireUsers(UUID targetUserId, UUID followerId) throws ServiceException {

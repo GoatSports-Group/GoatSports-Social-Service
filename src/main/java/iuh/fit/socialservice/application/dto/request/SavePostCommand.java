@@ -2,6 +2,7 @@ package iuh.fit.socialservice.application.dto.request;
 
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +24,7 @@ public class SavePostCommand {
     private UUID actorId;
     private String content;
     private PostVisibility visibility;
+    private PostSport sport;
     private List<AttachmentItem> attachments;
 
     public void validate() throws ServiceException {

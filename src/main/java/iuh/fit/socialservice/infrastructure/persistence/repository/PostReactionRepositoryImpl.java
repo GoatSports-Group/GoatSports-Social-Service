@@ -7,6 +7,8 @@ import iuh.fit.socialservice.infrastructure.persistence.entity.PostReactionEntit
 import iuh.fit.socialservice.infrastructure.persistence.mapper.PostReactionEntityMapper;
 import iuh.fit.socialservice.infrastructure.persistence.repository.mongo.MongoPostReactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -40,5 +42,11 @@ public class PostReactionRepositoryImpl implements PostReactionRepository {
     @Override
     public void delete(UUID postId, UUID userId, ReactionType type) {
         mongoRepository.deleteByPostIdAndUserIdAndType(postId.toString(), userId.toString(), type);
+    }
+
+    @Override
+    public Page<PostReaction> findByUser(UUID userId, ReactionType type, Pageable pageable) {
+        return mongoRepository.findByUserIdAndTypeOrderByReactedAtDesc(userId.toString(), type, pageable)
+                .map(mapper::toDomain);
     }
 }

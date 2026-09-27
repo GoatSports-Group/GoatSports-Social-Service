@@ -2,6 +2,7 @@ package iuh.fit.socialservice.presentation.controller;
 
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialFollowService;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -51,6 +53,14 @@ public class SocialUserFollowController {
         return ResponseEntity.ok(followConverter.toResponse(
                 followService.unfollowUser(userId, requiredUserId())
         ));
+    }
+
+    @GetMapping("/suggestions")
+    @ApiMessage("Lay goi y theo doi thanh cong")
+    public ResponseEntity<List<PostRepository.AuthorActivity>> getSuggestions(
+            @RequestParam(defaultValue = "5") int limit
+    ) throws ServiceException {
+        return ResponseEntity.ok(followService.getFollowSuggestions(requiredUserId(), limit));
     }
 
     @GetMapping("/me/following")

@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.presentation.request;
 
 import iuh.fit.socialservice.domain.enums.AttachmentType;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +27,9 @@ public class SavePostRequest {
 
     @NotNull(message = "Quyền riêng tư không được để trống")
     private PostVisibility visibility;
+
+    /** Tuy chon; null nghia la bai khong gan mon. */
+    private PostSport sport;
 
     @Valid
     @Size(max = 10, message = "Mỗi bài viết được đính kèm tối đa 10 tệp")

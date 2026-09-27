@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.domain.entity;
 
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,9 @@ public class Post {
     private String content;
     private PostVisibility visibility;
     private PostStatus status;
+    private PostSport sport;
+    /** Bai goc khi day la bai chia se; null voi bai thuong. */
+    private UUID sharedPostId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;

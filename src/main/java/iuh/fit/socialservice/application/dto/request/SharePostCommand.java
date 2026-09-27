@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import iuh.fit.socialservice.domain.enums.PostVisibility;
+
 import java.util.UUID;
 
 @Getter
@@ -16,4 +18,5 @@ import java.util.UUID;
 public class SharePostCommand {
     private UUID actorId;
     private String caption;
+    private PostVisibility visibility;
 }
