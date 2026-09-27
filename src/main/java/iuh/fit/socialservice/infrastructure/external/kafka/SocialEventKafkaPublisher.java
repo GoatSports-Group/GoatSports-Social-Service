@@ -10,6 +10,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -32,14 +33,17 @@ public class SocialEventKafkaPublisher implements SocialEventPublisher {
 
     @Override
     public void publish(String eventType, UUID receiverId, UUID actorId, UUID aggregateId,
-                        Map<String, String> payload) {
+                        Map<String, String> payload, String dedupeKey) {
         try {
             ObjectNode body = objectMapper.createObjectNode();
             body.put("receiverId", receiverId.toString());
             payload.forEach(body::put);
 
             ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", UUID.randomUUID().toString());
+            UUID eventId = dedupeKey == null
+                    ? UUID.randomUUID()
+                    : UUID.nameUUIDFromBytes((eventType + "|" + dedupeKey).getBytes(StandardCharsets.UTF_8));
+            envelope.put("eventId", eventId.toString());
             envelope.put("eventType", eventType);
             envelope.put("aggregateId", aggregateId.toString());
             envelope.put("producer", "social-service");

@@ -26,6 +26,9 @@ public class PostEntityMapper {
                 .publishedAt(entity.getPublishedAt())
                 .attachments(entity.getAttachments() == null ? Collections.emptyList()
                         : entity.getAttachments().stream().map(this::toDomain).toList())
+                .tags(entity.getTags() == null ? Collections.emptyList() : entity.getTags())
+                .mentionedUserIds(entity.getMentionedUserIds() == null ? Collections.emptyList()
+                        : entity.getMentionedUserIds().stream().map(this::toUuid).toList())
                 .build();
     }
 
@@ -44,6 +47,9 @@ public class PostEntityMapper {
                 .publishedAt(domain.getPublishedAt())
                 .attachments(domain.getAttachments() == null ? Collections.emptyList()
                         : domain.getAttachments().stream().map(this::toDocument).toList())
+                .tags(domain.getTags() == null ? Collections.emptyList() : domain.getTags())
+                .mentionedUserIds(domain.getMentionedUserIds() == null ? Collections.emptyList()
+                        : domain.getMentionedUserIds().stream().map(this::toString).toList())
                 .build();
     }
 

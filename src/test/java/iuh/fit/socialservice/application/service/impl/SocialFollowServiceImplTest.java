@@ -134,7 +134,8 @@ class SocialFollowServiceImplTest {
         service.followUser(target, follower);
         service.followUser(target, follower);
 
-        verify(eventPublisher).publish(eq(SocialEventPublisher.USER_FOLLOWED), eq(target), eq(follower), any(), anyMap());
+        verify(eventPublisher).publish(eq(SocialEventPublisher.USER_FOLLOWED), eq(target), eq(follower), any(), anyMap(),
+                eq("follow:" + follower + ":" + target));
     }
 
     @Test

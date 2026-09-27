@@ -15,5 +15,4 @@ public interface MongoPostCommentRepository extends MongoRepository<PostCommentE
             Pageable pageable
     );
 
-    long countByPostIdAndStatus(String postId, PostStatus status);
 }

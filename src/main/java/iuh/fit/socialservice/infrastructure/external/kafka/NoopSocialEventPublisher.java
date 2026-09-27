@@ -11,6 +11,6 @@ public class NoopSocialEventPublisher {
     @Bean
     @ConditionalOnMissingBean(SocialEventPublisher.class)
     SocialEventPublisher noopSocialEventPublisher() {
-        return (eventType, receiverId, actorId, aggregateId, payload) -> { };
+        return (eventType, receiverId, actorId, aggregateId, payload, dedupeKey) -> { };
     }
 }

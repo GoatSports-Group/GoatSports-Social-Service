@@ -9,12 +9,14 @@ import iuh.fit.socialservice.application.service.SocialBlockService;
 import iuh.fit.socialservice.application.service.SocialFriendService;
 import iuh.fit.socialservice.domain.entity.Friendship;
 import iuh.fit.socialservice.domain.enums.FriendshipStatus;
+import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class SocialFriendServiceImpl implements SocialFriendService {
     private final FriendshipRepository friendshipRepository;
     private final SocialBlockService socialBlockService;
+    private final SocialEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -49,7 +52,7 @@ public class SocialFriendServiceImpl implements SocialFriendService {
                 f.setAddresseeId(command.getAddresseeId());
                 f.setRequestedAt(LocalDateTime.now());
                 f.setRespondedAt(null);
-                return mapToResponse(friendshipRepository.save(f));
+                return mapToResponse(requested(friendshipRepository.save(f)));
             }
         }
 
@@ -60,7 +63,7 @@ public class SocialFriendServiceImpl implements SocialFriendService {
                 .requestedAt(LocalDateTime.now())
                 .build();
 
-        return mapToResponse(friendshipRepository.save(newFriendship));
+        return mapToResponse(requested(friendshipRepository.save(newFriendship)));
     }
 
     @Override
@@ -79,7 +82,13 @@ public class SocialFriendServiceImpl implements SocialFriendService {
         friendship.setStatus(command.isAccepted() ? FriendshipStatus.ACCEPTED : FriendshipStatus.REJECTED);
         friendship.setRespondedAt(LocalDateTime.now());
 
-        return mapToResponse(friendshipRepository.save(friendship));
+        Friendship saved = friendshipRepository.save(friendship);
+        if (saved.getStatus() == FriendshipStatus.ACCEPTED) {
+            // Tu choi thi im lang: khong bao cho nguoi gui biet minh bi tu choi.
+            eventPublisher.publish(SocialEventPublisher.FRIEND_ACCEPTED, saved.getRequesterId(), saved.getAddresseeId(),
+                    saved.getFriendshipId(), Map.of("friendshipId", saved.getFriendshipId().toString()), null);
+        }
+        return mapToResponse(saved);
     }
 
     @Override
@@ -111,6 +120,13 @@ public class SocialFriendServiceImpl implements SocialFriendService {
     public List<FriendshipResponseCommand> getPendingSentRequests(UUID userId) {
         return friendshipRepository.findByRequesterIdAndStatus(userId, FriendshipStatus.PENDING)
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    private Friendship requested(Friendship friendship) {
+        eventPublisher.publish(SocialEventPublisher.FRIEND_REQUESTED, friendship.getAddresseeId(),
+                friendship.getRequesterId(), friendship.getFriendshipId(),
+                Map.of("friendshipId", friendship.getFriendshipId().toString()), null);
+        return friendship;
     }
 
     private FriendshipResponseCommand mapToResponse(Friendship f) {

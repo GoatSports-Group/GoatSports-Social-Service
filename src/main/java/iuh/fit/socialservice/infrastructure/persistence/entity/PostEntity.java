@@ -27,7 +27,9 @@ import java.util.List;
 @CompoundIndexes({
         @CompoundIndex(name = "post_feed_idx", def = "{'status': 1, 'visibility': 1, 'publishedAt': -1}"),
         @CompoundIndex(name = "post_author_created_idx", def = "{'authorId': 1, 'createdAt': -1}"),
-        @CompoundIndex(name = "post_sport_feed_idx", def = "{'status': 1, 'sport': 1, 'publishedAt': -1}")
+        @CompoundIndex(name = "post_sport_feed_idx", def = "{'status': 1, 'sport': 1, 'publishedAt': -1}"),
+        @CompoundIndex(name = "post_tag_feed_idx", def = "{'tags': 1, 'status': 1, 'publishedAt': -1}"),
+        @CompoundIndex(name = "post_shared_idx", def = "{'sharedPostId': 1, 'status': 1}")
 })
 public class PostEntity {
     @Id
@@ -48,4 +50,8 @@ public class PostEntity {
 
     @Builder.Default
     private List<PostAttachmentDoc> attachments = new ArrayList<>();
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
+    @Builder.Default
+    private List<String> mentionedUserIds = new ArrayList<>();
 }

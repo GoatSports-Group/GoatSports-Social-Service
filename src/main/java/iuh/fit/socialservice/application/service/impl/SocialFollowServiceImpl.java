@@ -86,7 +86,9 @@ public class SocialFollowServiceImpl implements SocialFollowService {
                     .targetId(targetUserId)
                     .build());
             eventPublisher.publish(SocialEventPublisher.USER_FOLLOWED, targetUserId, followerId, followerId,
-                    Map.of("followerId", followerId.toString()));
+                    Map.of("followerId", followerId.toString()),
+                    // Bo theo doi roi theo doi lai khong bao lan nua.
+                    "follow:" + followerId + ":" + targetUserId);
         }
         return userResponse(targetUserId, true);
     }

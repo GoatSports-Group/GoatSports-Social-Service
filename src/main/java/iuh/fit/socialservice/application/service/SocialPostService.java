@@ -6,10 +6,12 @@ import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface SocialPostService {
@@ -50,7 +52,10 @@ public interface SocialPostService {
     /** Tao mot bai chia se tro toi bai goc va tra ve bai moi. */
     PostResponseCommand sharePost(UUID postId, SharePostCommand command) throws ServiceException;
 
-    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId) {
+    /** Hashtag dang duoc nhac nhieu trong 7 ngay qua (chi bai cong khai). */
+    List<PostRepository.TagCount> getTrendingTags(int limit);
+
+    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag) {
     }
 
     record AuthorStats(UUID authorId, long postCount) {

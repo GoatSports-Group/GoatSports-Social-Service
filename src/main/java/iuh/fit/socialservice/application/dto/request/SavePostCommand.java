@@ -20,11 +20,14 @@ import java.util.UUID;
 @AllArgsConstructor
 public class SavePostCommand {
     private static final int MAX_ATTACHMENTS = 10;
+    private static final int MAX_MENTIONS = 20;
 
     private UUID actorId;
     private String content;
     private PostVisibility visibility;
     private PostSport sport;
+    /** Nguoi duoc nhac ten (@) trong bai. */
+    private List<UUID> mentions;
     private List<AttachmentItem> attachments;
 
     public void validate() throws ServiceException {
@@ -37,6 +40,9 @@ public class SavePostCommand {
         }
         if (content != null && content.trim().length() > 5000) {
             throw new ServiceException("Nội dung bài viết không được vượt quá 5000 ký tự");
+        }
+        if (mentions != null && mentions.size() > MAX_MENTIONS) {
+            throw new ServiceException("Mỗi bài viết nhắc tối đa " + MAX_MENTIONS + " người");
         }
         if (submittedAttachments.size() > MAX_ATTACHMENTS) {
             throw new ServiceException("Mỗi bài viết được đính kèm tối đa 10 tệp");

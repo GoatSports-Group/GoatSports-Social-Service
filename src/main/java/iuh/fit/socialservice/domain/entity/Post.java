@@ -33,4 +33,9 @@ public class Post {
     private LocalDateTime publishedAt;
     @Builder.Default
     private List<PostAttachment> attachments = new ArrayList<>();
+    /** Hashtag trich tu noi dung (chu thuong, khong dau #). */
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
+    @Builder.Default
+    private List<UUID> mentionedUserIds = new ArrayList<>();
 }

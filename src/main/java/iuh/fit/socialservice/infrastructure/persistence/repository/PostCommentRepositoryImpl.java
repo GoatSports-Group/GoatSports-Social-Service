@@ -9,7 +9,12 @@ import iuh.fit.socialservice.infrastructure.persistence.repository.mongo.MongoPo
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Repository;
+
+import java.util.Collection;
+import java.util.Map;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +23,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PostCommentRepositoryImpl implements PostCommentRepository {
     private final MongoPostCommentRepository mongoRepository;
+    private final MongoTemplate mongoTemplate;
     private final PostCommentEntityMapper mapper;
 
     @Override
@@ -42,7 +48,8 @@ public class PostCommentRepositoryImpl implements PostCommentRepository {
     }
 
     @Override
-    public long countPublishedByPostId(UUID postId) {
-        return mongoRepository.countByPostIdAndStatus(postId.toString(), PostStatus.PUBLISHED);
+    public Map<UUID, Long> countPublishedByPostIds(Collection<UUID> postIds) {
+        return MongoGroupCount.count(mongoTemplate, PostCommentEntity.class, "postId", postIds,
+                Criteria.where("status").is(PostStatus.PUBLISHED));
     }
 }

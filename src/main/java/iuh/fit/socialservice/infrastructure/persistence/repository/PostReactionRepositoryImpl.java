@@ -7,10 +7,13 @@ import iuh.fit.socialservice.infrastructure.persistence.entity.PostReactionEntit
 import iuh.fit.socialservice.infrastructure.persistence.mapper.PostReactionEntityMapper;
 import iuh.fit.socialservice.infrastructure.persistence.repository.mongo.MongoPostReactionRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PostReactionRepositoryImpl implements PostReactionRepository {
     private final MongoPostReactionRepository mongoRepository;
+    private final MongoTemplate mongoTemplate;
     private final PostReactionEntityMapper mapper;
 
     @Override
@@ -35,18 +39,23 @@ public class PostReactionRepositoryImpl implements PostReactionRepository {
     }
 
     @Override
-    public long count(UUID postId, ReactionType type) {
-        return mongoRepository.countByPostIdAndType(postId.toString(), type);
-    }
-
-    @Override
     public void delete(UUID postId, UUID userId, ReactionType type) {
         mongoRepository.deleteByPostIdAndUserIdAndType(postId.toString(), userId.toString(), type);
     }
 
     @Override
-    public Page<PostReaction> findByUser(UUID userId, ReactionType type, Pageable pageable) {
-        return mongoRepository.findByUserIdAndTypeOrderByReactedAtDesc(userId.toString(), type, pageable)
-                .map(mapper::toDomain);
+    public Map<UUID, Long> countByPostIds(Collection<UUID> postIds, ReactionType type) {
+        return MongoGroupCount.count(mongoTemplate, PostReactionEntity.class, "postId", postIds,
+                Criteria.where("type").is(type));
+    }
+
+    @Override
+    public List<PostReaction> findByUserAndPostIds(UUID userId, Collection<UUID> postIds) {
+        if (postIds.isEmpty()) return List.of();
+        return mongoRepository.findByUserIdAndPostIdIn(userId.toString(),
+                        postIds.stream().map(UUID::toString).toList())
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 }

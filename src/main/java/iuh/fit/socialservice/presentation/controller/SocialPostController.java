@@ -2,6 +2,7 @@ package iuh.fit.socialservice.presentation.controller;
 
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialPostService;
 import iuh.fit.socialservice.domain.enums.PostSport;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -48,10 +50,11 @@ public class SocialPostController {
             @RequestParam(defaultValue = "false") boolean followingOnly,
             @RequestParam(required = false) PostSport sport,
             @RequestParam(required = false) UUID authorId,
+            @RequestParam(required = false) String tag,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId);
+        SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag);
         Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), filter, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
@@ -65,6 +68,12 @@ public class SocialPostController {
         Page<PostResponse> response = postService.getSavedPosts(requiredUserId(), pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
+    }
+
+    @GetMapping("/tags/trending")
+    @ApiMessage("Lấy chủ đề nổi bật thành công")
+    public ResponseEntity<List<PostRepository.TagCount>> getTrendingTags(@RequestParam(defaultValue = "8") int limit) {
+        return ResponseEntity.ok(postService.getTrendingTags(limit));
     }
 
     @GetMapping("/authors/{authorId}/stats")

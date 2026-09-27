@@ -3,9 +3,9 @@ package iuh.fit.socialservice.application.port.persistence;
 import iuh.fit.socialservice.domain.entity.PostReaction;
 import iuh.fit.socialservice.domain.enums.ReactionType;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,10 +14,11 @@ public interface PostReactionRepository {
 
     Optional<PostReaction> find(UUID postId, UUID userId, ReactionType type);
 
-    long count(UUID postId, ReactionType type);
-
     void delete(UUID postId, UUID userId, ReactionType type);
 
-    /** Moi nhat truoc. */
-    Page<PostReaction> findByUser(UUID userId, ReactionType type, Pageable pageable);
+    /** postId → so luot; bai khong co luot nao thi khong co trong map. */
+    Map<UUID, Long> countByPostIds(Collection<UUID> postIds, ReactionType type);
+
+    /** Moi reaction (moi loai) cua mot nguoi tren cac bai cho truoc. */
+    List<PostReaction> findByUserAndPostIds(UUID userId, Collection<UUID> postIds);
 }

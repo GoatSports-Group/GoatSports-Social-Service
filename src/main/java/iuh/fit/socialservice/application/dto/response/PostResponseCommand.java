@@ -36,6 +36,8 @@ public class PostResponseCommand {
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;
     private List<AttachmentItem> attachments;
+    private List<String> tags;
+    private List<UUID> mentions;
     private long likeCount;
     private long commentCount;
     private long shareCount;

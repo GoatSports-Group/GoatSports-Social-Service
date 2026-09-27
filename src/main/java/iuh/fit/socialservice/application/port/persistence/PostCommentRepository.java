@@ -4,6 +4,8 @@ import iuh.fit.socialservice.domain.entity.PostComment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,5 +16,6 @@ public interface PostCommentRepository {
 
     Page<PostComment> findPublishedByPostId(UUID postId, Pageable pageable);
 
-    long countPublishedByPostId(UUID postId);
+    /** postId → so binh luan dang hien. */
+    Map<UUID, Long> countPublishedByPostIds(Collection<UUID> postIds);
 }
