@@ -1,7 +1,6 @@
 package iuh.fit.socialservice.presentation.request;
 
 import iuh.fit.socialservice.domain.enums.ConversationType;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.util.List;
@@ -17,7 +16,7 @@ public class CreateConversationRequest {
     private String name;
     private String avatarUrl;
     private UUID contextId;
-    @NotNull(message = "Mã người tạo không được để trống")
+    /** Khong bat buoc; controller luon dung nguoi dang dang nhap. */
     private UUID creatorId;
     private List<MemberItemRequest> members;
 

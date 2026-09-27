@@ -5,6 +5,8 @@ import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.exception.UnauthenticatedException;
+import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialChatService;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialChatConverter;
@@ -23,6 +25,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/**
+ * Danh tinh luon lay tu phien dang nhap (header gateway), khong tu tham so client gui. Cac tham so
+ * userId / user1Id / senderId / creatorId cu van duoc nhan de khong vo client, nhung phai trung voi
+ * nguoi dang goi — truoc day ai biet id nguoi khac la doc duoc hoi thoai va gui tin duoi ten ho.
+ */
 @RestController
 @RequestMapping("/api/v1/social/conversations")
 @RequiredArgsConstructor
@@ -30,14 +37,15 @@ public class SocialChatController {
 
     private final SocialChatService chatService;
     private final SocialChatConverter chatConverter;
+    private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
     @ApiMessage("Lấy danh sách cuộc trò chuyện thành công")
     public ResponseEntity<PageResponse<ConversationResponse>> getUserConversations(
-            @RequestParam UUID userId,
+            @RequestParam(required = false) UUID userId,
             Pageable pageable
-    ) {
-        Page<ConversationResponseCommand> result = chatService.getUserConversations(userId, pageable);
+    ) throws ServiceException {
+        Page<ConversationResponseCommand> result = chatService.getUserConversations(caller(userId), pageable);
         return ResponseEntity.ok(PageResponse.from(result.map(chatConverter::toResponse)));
     }
 
@@ -45,19 +53,19 @@ public class SocialChatController {
     @ApiMessage("Lấy thông tin cuộc trò chuyện thành công")
     public ResponseEntity<ConversationResponse> getConversation(
             @PathVariable UUID conversationId,
-            @RequestParam UUID userId
+            @RequestParam(required = false) UUID userId
     ) throws ServiceException {
-        ConversationResponseCommand result = chatService.getConversation(conversationId, userId);
+        ConversationResponseCommand result = chatService.getConversation(conversationId, caller(userId));
         return ResponseEntity.ok(chatConverter.toResponse(result));
     }
 
     @PostMapping("/direct")
     @ApiMessage("Lấy hoặc tạo cuộc trò chuyện trực tiếp 1-1 thành công")
     public ResponseEntity<ConversationResponse> getOrCreateDirectConversation(
-            @RequestParam UUID user1Id,
+            @RequestParam(required = false) UUID user1Id,
             @RequestParam UUID user2Id
     ) throws ServiceException {
-        ConversationResponseCommand result = chatService.getOrCreateDirectConversation(user1Id, user2Id);
+        ConversationResponseCommand result = chatService.getOrCreateDirectConversation(caller(user1Id), user2Id);
         return ResponseEntity.ok(chatConverter.toResponse(result));
     }
 
@@ -66,6 +74,7 @@ public class SocialChatController {
     public ResponseEntity<ConversationResponse> createGroupConversation(
             @Valid @RequestBody CreateConversationRequest request
     ) throws ServiceException {
+        request.setCreatorId(caller(request.getCreatorId()));
         CreateConversationCommand cmd = chatConverter.toCommand(request);
         ConversationResponseCommand result = chatService.createGroupConversation(cmd);
         return ResponseEntity.status(HttpStatus.CREATED).body(chatConverter.toResponse(result));
@@ -75,10 +84,10 @@ public class SocialChatController {
     @ApiMessage("Lấy lịch sử tin nhắn cuộc trò chuyện thành công")
     public ResponseEntity<PageResponse<MessageResponse>> getConversationMessages(
             @PathVariable UUID conversationId,
-            @RequestParam UUID userId,
+            @RequestParam(required = false) UUID userId,
             Pageable pageable
     ) throws ServiceException {
-        Page<MessageResponseCommand> result = chatService.getConversationMessages(conversationId, userId, pageable);
+        Page<MessageResponseCommand> result = chatService.getConversationMessages(conversationId, caller(userId), pageable);
         return ResponseEntity.ok(PageResponse.from(result.map(chatConverter::toResponse)));
     }
 
@@ -88,6 +97,7 @@ public class SocialChatController {
             @PathVariable UUID conversationId,
             @Valid @RequestBody SendMessageRequest request
     ) throws ServiceException {
+        request.setSenderId(caller(request.getSenderId()));
         SendMessageCommand cmd = chatConverter.toCommand(conversationId, request);
         MessageResponseCommand result = chatService.sendMessage(cmd);
         return ResponseEntity.status(HttpStatus.CREATED).body(chatConverter.toResponse(result));
@@ -97,9 +107,29 @@ public class SocialChatController {
     @ApiMessage("Đánh dấu đã đọc thành công")
     public ResponseEntity<Void> markAsRead(
             @PathVariable UUID conversationId,
-            @RequestParam UUID userId
+            @RequestParam(required = false) UUID userId
     ) throws ServiceException {
-        chatService.markAsRead(conversationId, userId);
+        chatService.markAsRead(conversationId, caller(userId));
         return ResponseEntity.noContent().build();
+    }
+
+    /** Nguoi dang goi; neu client con gui kem mot id thi id do phai la chinh ho. */
+    private UUID caller(UUID claimed) throws ServiceException {
+        UUID me = currentUserProvider.getCurrentUserId()
+                .map(this::uuidOrNull)
+                .orElse(null);
+        if (me == null) throw new UnauthenticatedException("Phiên đăng nhập đã hết hạn");
+        if (claimed != null && !claimed.equals(me)) {
+            throw new ServiceException("Bạn không thể thao tác thay người dùng khác.");
+        }
+        return me;
+    }
+
+    private UUID uuidOrNull(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 }

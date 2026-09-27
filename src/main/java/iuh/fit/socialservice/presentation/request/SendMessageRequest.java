@@ -2,8 +2,10 @@ package iuh.fit.socialservice.presentation.request;
 
 import iuh.fit.socialservice.domain.enums.MessageType;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.util.UUID;
@@ -15,12 +17,14 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SendMessageRequest {
-    @NotNull(message = "Mã người gửi không được để trống")
+    /** Khong bat buoc; controller luon dung nguoi dang dang nhap. */
     private UUID senderId;
     private String clientMessageId;
     private String content;
     private MessageType type;
     private UUID replyToMessageId;
+    @Valid
+    @Size(max = 10, message = "Mỗi tin nhắn gửi tối đa 10 ảnh")
     private List<AttachmentItemRequest> attachments;
 
     @Getter

@@ -2,6 +2,7 @@ package iuh.fit.socialservice.application.service.impl;
 
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
+import iuh.fit.socialservice.domain.service.ChatAttachmentPolicy;
 import iuh.fit.socialservice.domain.entity.Conversation;
 import iuh.fit.socialservice.domain.entity.Message;
 
@@ -32,7 +33,8 @@ final class ChatResponseMapper {
                 .avatarUrl(conversation.getAvatarUrl())
                 .contextId(conversation.getContextId())
                 .lastMessageId(conversation.getLastMessageId())
-                .lastMessageContent(lastMessage == null ? null : lastMessage.getContent())
+                .lastMessageContent(lastMessage == null ? null : ChatAttachmentPolicy.preview(lastMessage.getContent(),
+                        lastMessage.getAttachments() == null ? 0 : lastMessage.getAttachments().size()))
                 .lastMessageAt(conversation.getLastMessageAt())
                 .lastSenderId(lastMessage == null ? null : lastMessage.getSenderId())
                 .members(members)

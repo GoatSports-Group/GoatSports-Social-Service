@@ -14,7 +14,9 @@ import iuh.fit.socialservice.application.service.SocialChatService;
 import iuh.fit.socialservice.domain.entity.Conversation;
 import iuh.fit.socialservice.domain.entity.ConversationMember;
 import iuh.fit.socialservice.domain.entity.Message;
+import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.domain.entity.MessageAttachment;
+import iuh.fit.socialservice.domain.service.ChatAttachmentPolicy;
 import iuh.fit.socialservice.domain.entity.MessageReceipt;
 import iuh.fit.socialservice.domain.enums.ConversationType;
 import iuh.fit.socialservice.domain.enums.MemberRole;
@@ -44,6 +46,7 @@ public class SocialChatServiceImpl implements SocialChatService {
     private final MessageRepository messageRepository;
     private final SocialBlockService socialBlockService;
     private final SocialWebSocketPublisher webSocketPublisher;
+    private final StorageKeyPromoter storageKeyPromoter;
 
     @Override
     @Transactional(readOnly = true)
@@ -237,6 +240,13 @@ public class SocialChatServiceImpl implements SocialChatService {
         Conversation conversation = requireConversation(command.getConversationId());
         requireActiveMember(conversation, command.getSenderId());
         command.validate();
+        String attachmentProblem = ChatAttachmentPolicy.violation(
+                command.getAttachments() == null ? List.of() : command.getAttachments().stream()
+                        .map(item -> item == null ? null
+                                : new ChatAttachmentPolicy.Item(item.getStorageKey(), item.getType(), item.getFileSize()))
+                        .toList(),
+                command.getSenderId());
+        if (attachmentProblem != null) throw new ServiceException(attachmentProblem);
 
         // Chat 1-1: một trong hai người đã chặn người kia thì không gửi được nữa (chặn có hiệu lực hai chiều).
         if (conversation.getType() == ConversationType.DIRECT) {
@@ -277,22 +287,15 @@ public class SocialChatServiceImpl implements SocialChatService {
                         .occurredAt(now)
                         .build())
                 .toList();
-        List<MessageAttachment> attachments = command.getAttachments() == null
-                ? List.of()
-                : command.getAttachments().stream().map(item -> MessageAttachment.builder()
-                        .attachmentId(item.getAttachmentId() == null ? UUID.randomUUID() : item.getAttachmentId())
-                        .storageKey(item.getStorageKey())
-                        .type(item.getType())
-                        .fileName(item.getFileName())
-                        .fileSize(item.getFileSize())
-                        .build()).toList();
+        List<MessageAttachment> attachments = toAttachments(command.getAttachments(), command.getConversationId());
 
         Message message = Message.builder()
                 .conversationId(command.getConversationId())
                 .senderId(command.getSenderId())
                 .clientMessageId(clientMessageId)
                 .content(command.getContent() == null ? "" : command.getContent().trim())
-                .type(command.getType() == null ? MessageType.TEXT : command.getType())
+                .type(command.getType() != null ? command.getType()
+                        : attachments.isEmpty() ? MessageType.TEXT : MessageType.IMAGE)
                 .status(MessageStatus.SENT)
                 .replyToMessageId(command.getReplyToMessageId())
                 .deleted(false)
@@ -319,6 +322,29 @@ public class SocialChatServiceImpl implements SocialChatService {
         member.setLastReadMessageId(conversation.getLastMessageId());
         member.setUpdatedAt(LocalDateTime.now());
         conversationRepository.save(conversation);
+    }
+
+    /**
+     * Ca nhom anh di trong mot tin nhan, giu dung thu tu nguoi gui chon. Anh vua tai len nam o R2 `temp/`
+     * (lifecycle rule se xoa); doi sang vung vinh vien truoc khi luu khoa, giong anh dai dien va bai viet.
+     */
+    private List<MessageAttachment> toAttachments(List<SendMessageCommand.AttachmentItem> items, UUID conversationId) {
+        if (items == null || items.isEmpty()) return List.of();
+        List<String> keys = storageKeyPromoter.promote(
+                items.stream().map(item -> item.getStorageKey().trim()).toList(),
+                "chat-message:" + conversationId);
+        List<MessageAttachment> attachments = new ArrayList<>(items.size());
+        for (int index = 0; index < items.size(); index++) {
+            SendMessageCommand.AttachmentItem item = items.get(index);
+            attachments.add(MessageAttachment.builder()
+                    .attachmentId(UUID.randomUUID())
+                    .storageKey(keys.get(index))
+                    .type(item.getType())
+                    .fileName(item.getFileName())
+                    .fileSize(item.getFileSize())
+                    .build());
+        }
+        return attachments;
     }
 
     private Conversation requireConversation(UUID conversationId) throws ServiceException {

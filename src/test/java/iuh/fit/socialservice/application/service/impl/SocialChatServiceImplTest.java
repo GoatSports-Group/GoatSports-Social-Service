@@ -27,6 +27,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +41,8 @@ class SocialChatServiceImplTest {
     private SocialBlockService socialBlockService;
     @Mock
     private SocialWebSocketPublisher webSocketPublisher;
+    @Mock
+    private iuh.fit.socialservice.application.port.external.StorageKeyPromoter storageKeyPromoter;
 
     private SocialChatServiceImpl service;
 
@@ -48,7 +52,8 @@ class SocialChatServiceImplTest {
                 conversationRepository,
                 messageRepository,
                 socialBlockService,
-                webSocketPublisher
+                webSocketPublisher,
+                storageKeyPromoter
         );
         org.mockito.Mockito.lenient().when(conversationRepository.save(any(Conversation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -257,5 +262,79 @@ class SocialChatServiceImplTest {
                 service.syncContextConversation(SyncContextConversationCommand.builder()
                         .contextId(UUID.randomUUID()).name("CLB test").build()))
                 .isInstanceOf(ServiceException.class);
+    }
+
+    // ---- images ----------------------------------------------------------------------------------
+
+    private Conversation directWith(UUID sender, UUID other) {
+        Conversation conversation = Conversation.builder()
+                .conversationId(UUID.randomUUID())
+                .type(ConversationType.DIRECT)
+                .members(new java.util.ArrayList<>(List.of(
+                        ConversationMember.builder().userId(sender).role(MemberRole.MEMBER).build(),
+                        ConversationMember.builder().userId(other).role(MemberRole.MEMBER).build())))
+                .build();
+        when(conversationRepository.findById(conversation.getConversationId())).thenReturn(Optional.of(conversation));
+        return conversation;
+    }
+
+    private static iuh.fit.socialservice.application.dto.request.SendMessageCommand.AttachmentItem image(String key) {
+        return iuh.fit.socialservice.application.dto.request.SendMessageCommand.AttachmentItem.builder()
+                .storageKey(key).type(iuh.fit.socialservice.domain.enums.AttachmentType.IMAGE).fileSize(2048L).build();
+    }
+
+    @Test
+    @DisplayName("nhiều ảnh đi trong một tin nhắn, được đưa ra khỏi temp/ và giữ đúng thứ tự")
+    void imagesTravelAsOneMessageAndArePromotedInOrder() throws ServiceException {
+        UUID sender = UUID.randomUUID();
+        Conversation conversation = directWith(sender, UUID.randomUUID());
+        List<String> temp = List.of(
+                "temp/chat-messages/" + sender + "/a-1.jpg",
+                "temp/chat-messages/" + sender + "/b-2.jpg",
+                "temp/chat-messages/" + sender + "/c-3.jpg");
+        when(storageKeyPromoter.promote(eq(temp), anyString()))
+                .thenReturn(temp.stream().map(key -> key.substring("temp/".length())).toList());
+        when(messageRepository.findBySenderIdAndClientMessageId(any(), anyString())).thenReturn(Optional.empty());
+        when(messageRepository.save(any())).thenAnswer(call -> {
+            iuh.fit.socialservice.domain.entity.Message saved = call.getArgument(0);
+            saved.setMessageId(UUID.randomUUID());
+            return saved;
+        });
+
+        var response = service.sendMessage(iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+                .conversationId(conversation.getConversationId())
+                .senderId(sender)
+                .clientMessageId("c-1")
+                .attachments(temp.stream().map(SocialChatServiceImplTest::image).toList())
+                .build());
+
+        ArgumentCaptor<iuh.fit.socialservice.domain.entity.Message> saved =
+                ArgumentCaptor.forClass(iuh.fit.socialservice.domain.entity.Message.class);
+        org.mockito.Mockito.verify(messageRepository).save(saved.capture());
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getType())
+                .isEqualTo(iuh.fit.socialservice.domain.enums.MessageType.IMAGE);
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getAttachments())
+                .extracting(iuh.fit.socialservice.domain.entity.MessageAttachment::getStorageKey)
+                .containsExactly("chat-messages/" + sender + "/a-1.jpg", "chat-messages/" + sender + "/b-2.jpg",
+                        "chat-messages/" + sender + "/c-3.jpg");
+        org.assertj.core.api.Assertions.assertThat(response.getAttachments()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("không đính kèm được ảnh do người khác tải lên")
+    void someoneElsesUploadIsRejected() {
+        UUID sender = UUID.randomUUID();
+        Conversation conversation = directWith(sender, UUID.randomUUID());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.sendMessage(
+                        iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+                                .conversationId(conversation.getConversationId())
+                                .senderId(sender)
+                                .attachments(List.of(image("chat-messages/" + UUID.randomUUID() + "/x.jpg")))
+                                .build()))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("không thuộc về bạn");
+        org.mockito.Mockito.verifyNoInteractions(storageKeyPromoter);
+        org.mockito.Mockito.verify(messageRepository, org.mockito.Mockito.never()).save(any());
     }
 }
