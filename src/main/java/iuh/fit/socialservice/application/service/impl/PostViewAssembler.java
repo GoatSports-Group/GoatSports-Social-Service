@@ -145,6 +145,7 @@ public class PostViewAssembler {
                 .visibility(post.getVisibility())
                 .status(post.getStatus())
                 .sport(post.getSport())
+                .playerCall(post.getPlayerCall())
                 .sharedPostId(post.getSharedPostId())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())

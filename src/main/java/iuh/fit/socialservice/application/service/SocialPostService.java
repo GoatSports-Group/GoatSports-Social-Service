@@ -56,7 +56,16 @@ public interface SocialPostService {
     /** Hashtag dang duoc nhac nhieu trong 7 ngay qua (chi bai cong khai). */
     List<PostRepository.TagCount> getTrendingTags(int limit);
 
-    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag) {
+    /** Keo "Tim nguoi choi" con mo, moi dang truoc: {@code club} true = keo CLB, false = keo ca nhan. */
+    List<PostResponseCommand> getOpenPlayerCalls(UUID viewerId, boolean club, PostSport sport, int limit);
+
+    /** Nguoi dang danh dau keo da du nguoi (hoac mo lai). */
+    PostResponseCommand setPlayerCallFilled(UUID postId, UUID actorId, boolean filled) throws ServiceException;
+
+    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly) {
+        public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag) {
+            this(followingOnly, sport, authorId, tag, false);
+        }
     }
 
     record AuthorStats(UUID authorId, long postCount) {

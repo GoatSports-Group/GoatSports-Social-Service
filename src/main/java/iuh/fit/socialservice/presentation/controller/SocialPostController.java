@@ -51,10 +51,12 @@ public class SocialPostController {
             @RequestParam(required = false) PostSport sport,
             @RequestParam(required = false) UUID authorId,
             @RequestParam(required = false) String tag,
+            @RequestParam(defaultValue = "false") boolean playerCallsOnly,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag);
+        SocialPostService.FeedFilter filter =
+                new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag, playerCallsOnly);
         Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), filter, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
@@ -81,6 +83,30 @@ public class SocialPostController {
     public ResponseEntity<SocialPostService.AuthorStats> getAuthorStats(@PathVariable UUID authorId) {
         return ResponseEntity.ok(postService.getAuthorStats(authorId, currentUserIdOrNull()));
     }
+
+    /** Kèo "Tìm người chơi" còn mở: cá nhân cho Trang chủ, CLB cho trang Câu lạc bộ. */
+    @GetMapping("/player-calls")
+    @ApiMessage("Lấy kèo đang tìm người thành công")
+    public ResponseEntity<List<PostResponse>> getOpenPlayerCalls(
+            @RequestParam(defaultValue = "false") boolean club,
+            @RequestParam(required = false) PostSport sport,
+            @RequestParam(defaultValue = "8") int limit
+    ) {
+        return ResponseEntity.ok(postService.getOpenPlayerCalls(currentUserIdOrNull(), club, sport, limit).stream()
+                .map(postConverter::toResponse).toList());
+    }
+
+    @PutMapping("/{postId}/player-call")
+    @ApiMessage("Cập nhật kèo thành công")
+    public ResponseEntity<PostResponse> setPlayerCallFilled(
+            @PathVariable UUID postId,
+            @RequestBody PlayerCallStatusRequest request
+    ) throws ServiceException {
+        return ResponseEntity.ok(postConverter.toResponse(
+                postService.setPlayerCallFilled(postId, requiredUserId(), request.filled())));
+    }
+
+    public record PlayerCallStatusRequest(boolean filled) { }
 
     @GetMapping("/{postId}")
     @ApiMessage("Lấy bài viết thành công")

@@ -29,7 +29,9 @@ import java.util.List;
         @CompoundIndex(name = "post_author_created_idx", def = "{'authorId': 1, 'createdAt': -1}"),
         @CompoundIndex(name = "post_sport_feed_idx", def = "{'status': 1, 'sport': 1, 'publishedAt': -1}"),
         @CompoundIndex(name = "post_tag_feed_idx", def = "{'tags': 1, 'status': 1, 'publishedAt': -1}"),
-        @CompoundIndex(name = "post_shared_idx", def = "{'sharedPostId': 1, 'status': 1}")
+        @CompoundIndex(name = "post_shared_idx", def = "{'sharedPostId': 1, 'status': 1}"),
+        @CompoundIndex(name = "post_player_call_idx",
+                def = "{'playerCall.filled': 1, 'playerCall.playDate': 1, 'status': 1, 'publishedAt': -1}", sparse = true)
 })
 public class PostEntity {
     @Id
@@ -42,6 +44,7 @@ public class PostEntity {
     private PostStatus status;
     private PostSport sport;
     private String sharedPostId;
+    private PlayerCallDoc playerCall;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

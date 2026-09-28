@@ -6,6 +6,7 @@ import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.domain.entity.Mention;
+import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.presentation.request.MentionRequest;
 import iuh.fit.socialservice.presentation.request.SaveCommentRequest;
 import iuh.fit.socialservice.presentation.request.SavePostRequest;
@@ -32,7 +33,19 @@ public class SocialPostConverter {
                                 .type(item.getType())
                                 .displayOrder(item.getDisplayOrder())
                                 .build()).toList())
+                .playerCall(toPlayerCall(request.getPlayerCall()))
                 .build();
+    }
+
+    private static PlayerCall toPlayerCall(SavePostRequest.PlayerCallRequest request) {
+        if (request == null) return null;
+        return new PlayerCall(request.sport(), blankToNull(request.playFormat()), request.playDate(),
+                request.startTime(), request.endTime(), request.location() == null ? null : request.location().trim(),
+                request.slots(), blankToNull(request.skillNote()), request.clubId(), null, false);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public SaveCommentCommand toCommand(UUID actorId, SaveCommentRequest request) {
@@ -64,6 +77,7 @@ public class SocialPostConverter {
                 .sharedPostId(command.getSharedPostId())
                 .sharedPost(toResponse(command.getSharedPost()))
                 .sharedPostUnavailable(command.isSharedPostUnavailable())
+                .playerCall(command.getPlayerCall())
                 .tags(command.getTags())
                 .mentions(command.getMentions())
                 .createdAt(command.getCreatedAt())

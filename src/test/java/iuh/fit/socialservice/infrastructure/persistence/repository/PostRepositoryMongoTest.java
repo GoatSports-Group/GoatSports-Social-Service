@@ -101,6 +101,38 @@ class PostRepositoryMongoTest {
     }
 
     @Test
+    void playerCallFilterSplitsPersonalAndClubCallsAndHidesFilledOrPastOnes() {
+        publish(stranger, PostVisibility.PUBLIC, "bài thường", 1);
+        Post personal = withCall(stranger, null, false, 1, 5);
+        Post club = withCall(stranger, UUID.randomUUID(), false, 1, 4);
+        withCall(stranger, null, true, 1, 3);
+        withCall(stranger, null, false, -1, 2);
+        withCall(blocked, null, false, 1, 1);
+
+        assertThat(callIds(false, true)).containsExactly(personal.getPostId());
+        assertThat(callIds(true, true)).containsExactly(club.getPostId());
+        assertThat(callIds(null, false)).hasSize(4);
+        Post roundTrip = posts.findById(personal.getPostId()).orElseThrow();
+        assertThat(roundTrip.getPlayerCall().startTime()).isEqualTo(java.time.LocalTime.of(19, 30));
+    }
+
+    private Post withCall(UUID author, UUID clubId, boolean filled, int daysFromNow, int minutesAgo) {
+        Post post = publish(author, PostVisibility.PUBLIC, "", minutesAgo);
+        post.setPlayerCall(new iuh.fit.socialservice.domain.entity.PlayerCall(
+                iuh.fit.socialservice.domain.enums.PostSport.BADMINTON, "BADMINTON_DOUBLES",
+                java.time.LocalDate.now().plusDays(daysFromNow), java.time.LocalTime.of(19, 30),
+                java.time.LocalTime.of(21, 0), "Quận 7", 1, null, clubId, clubId == null ? null : "CLB", filled));
+        return posts.save(post);
+    }
+
+    private List<UUID> callIds(Boolean club, boolean openOnly) {
+        PostRepository.FeedQuery query = new PostRepository.FeedQuery(viewer, Set.of(), Set.of(), Set.of(blocked),
+                false, null, null, null, new PostRepository.PlayerCallFilter(club, openOnly));
+        return posts.findFeed(query, PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "publishedAt")))
+                .getContent().stream().map(Post::getPostId).toList();
+    }
+
+    @Test
     void savedPostsFilterBeforePagingSoEveryPageIsFull() {
         Post older = publish(stranger, PostVisibility.PUBLIC, "cũ", 50);
         Post friendsOnly = publish(stranger, PostVisibility.FRIENDS, "chỉ bạn bè", 40);

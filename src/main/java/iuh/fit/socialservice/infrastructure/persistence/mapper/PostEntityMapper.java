@@ -1,7 +1,9 @@
 package iuh.fit.socialservice.infrastructure.persistence.mapper;
 
+import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
+import iuh.fit.socialservice.infrastructure.persistence.entity.PlayerCallDoc;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostAttachmentDoc;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostEntity;
 import org.springframework.stereotype.Component;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Component;
 import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.infrastructure.persistence.entity.MentionDoc;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +29,7 @@ public class PostEntityMapper {
                 .status(entity.getStatus())
                 .sport(entity.getSport())
                 .sharedPostId(toUuid(entity.getSharedPostId()))
+                .playerCall(toDomain(entity.getPlayerCall()))
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .publishedAt(entity.getPublishedAt())
@@ -46,6 +50,7 @@ public class PostEntityMapper {
                 .status(domain.getStatus())
                 .sport(domain.getSport())
                 .sharedPostId(toString(domain.getSharedPostId()))
+                .playerCall(toDocument(domain.getPlayerCall()))
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .publishedAt(domain.getPublishedAt())
@@ -54,6 +59,28 @@ public class PostEntityMapper {
                 .tags(domain.getTags() == null ? Collections.emptyList() : domain.getTags())
                 .mentions(toMentionDocs(domain.getMentions()))
                 .build();
+    }
+
+    private PlayerCall toDomain(PlayerCallDoc doc) {
+        if (doc == null) return null;
+        return new PlayerCall(doc.getSport(), doc.getPlayFormat(), doc.getPlayDate(), toTime(doc.getStartTime()),
+                toTime(doc.getEndTime()), doc.getLocation(), doc.getSlots(), doc.getSkillNote(), toUuid(doc.getClubId()),
+                doc.getClubName(), doc.isFilled());
+    }
+
+    private PlayerCallDoc toDocument(PlayerCall call) {
+        if (call == null) return null;
+        return PlayerCallDoc.builder()
+                .sport(call.sport()).playFormat(call.playFormat()).playDate(call.playDate())
+                .startTime(call.startTime() == null ? null : call.startTime().toString())
+                .endTime(call.endTime() == null ? null : call.endTime().toString())
+                .location(call.location()).slots(call.slots()).skillNote(call.skillNote())
+                .clubId(toString(call.clubId())).clubName(call.clubName()).filled(call.filled())
+                .build();
+    }
+
+    private static LocalTime toTime(String value) {
+        return value == null || value.isBlank() ? null : LocalTime.parse(value);
     }
 
     private PostAttachment toDomain(PostAttachmentDoc document) {

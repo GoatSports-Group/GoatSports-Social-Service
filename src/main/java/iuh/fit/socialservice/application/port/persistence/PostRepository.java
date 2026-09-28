@@ -49,8 +49,20 @@ public interface PostRepository {
             boolean followingOnly,
             PostSport sport,
             UUID authorId,
-            String tag
+            String tag,
+            PlayerCallFilter playerCalls
     ) {
+        public FeedQuery(UUID viewerId, Set<UUID> friendIds, Set<UUID> followingIds, Set<UUID> blockedUserIds,
+                         boolean followingOnly, PostSport sport, UUID authorId, String tag) {
+            this(viewerId, friendIds, followingIds, blockedUserIds, followingOnly, sport, authorId, tag, null);
+        }
+    }
+
+    /**
+     * Chi lay bai "Tim nguoi choi". {@code club}: true = keo CLB, false = keo ca nhan, null = ca hai.
+     * {@code openOnly}: bo keo da du nguoi va keo da qua ngay choi.
+     */
+    record PlayerCallFilter(Boolean club, boolean openOnly) {
     }
 
     record AuthorActivity(UUID authorId, long postCount) {

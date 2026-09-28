@@ -5,6 +5,7 @@ import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.external.ClubDirectory;
 import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.application.port.persistence.FollowRepository;
@@ -16,6 +17,7 @@ import iuh.fit.socialservice.application.port.persistence.PostShareRepository;
 import iuh.fit.socialservice.application.port.persistence.UserBlockRepository;
 import iuh.fit.socialservice.application.service.SocialPostService;
 import iuh.fit.socialservice.domain.entity.Mention;
+import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostComment;
 import iuh.fit.socialservice.domain.entity.PostReaction;
@@ -32,10 +34,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +70,7 @@ class SocialPostServiceImplTest {
     @Mock private FollowRepository followRepository;
     @Mock private StorageKeyPromoter storageKeyPromoter;
     @Mock private SocialEventPublisher eventPublisher;
+    @Mock private ClubDirectory clubDirectory;
 
     private SocialPostServiceImpl service;
 
@@ -74,7 +80,7 @@ class SocialPostServiceImplTest {
         PostViewAssembler assembler = new PostViewAssembler(postRepository, commentRepository, reactionRepository,
                 shareRepository, friendshipRepository, userBlockRepository, followRepository);
         service = new SocialPostServiceImpl(postRepository, commentRepository, reactionRepository, assembler,
-                storageKeyPromoter, eventPublisher);
+                storageKeyPromoter, eventPublisher, clubDirectory);
         lenient().when(storageKeyPromoter.promote(org.mockito.ArgumentMatchers.anyList(), anyString()))
                 .thenAnswer(call -> call.getArgument(0));
     }
@@ -128,6 +134,86 @@ class SocialPostServiceImplTest {
         assertThat(saved.getStatus()).isEqualTo(PostStatus.PUBLISHED);
         assertThat(saved.getAttachments()).singleElement()
                 .satisfies(attachment -> assertThat(attachment.getType()).isEqualTo(AttachmentType.IMAGE));
+    }
+
+    private static PlayerCall call(UUID clubId) {
+        return new PlayerCall(PostSport.FOOTBALL, "FOOTBALL_7", LocalDate.now().plusDays(1), LocalTime.of(19, 0),
+                LocalTime.of(21, 0), "Sân Chảo Lửa, Tân Bình", 2, "Trung bình", clubId, "Tên do client tự đặt", true);
+    }
+
+    @Test
+    @DisplayName("kèo tìm người chơi: luôn công khai, gắn môn của kèo, không cần lời nhắn; không tin trạng thái client gửi")
+    void playerCallIsAlwaysPublic() throws ServiceException {
+        savesReturnTheirArgument();
+
+        PostResponseCommand response = service.createPost(SavePostCommand.builder()
+                .actorId(UUID.randomUUID()).visibility(PostVisibility.FRIENDS).playerCall(call(null)).build());
+
+        Post saved = captureSavedPost();
+        assertThat(saved.getVisibility()).isEqualTo(PostVisibility.PUBLIC);
+        assertThat(saved.getSport()).isEqualTo(PostSport.FOOTBALL);
+        assertThat(saved.getPlayerCall().filled()).isFalse();
+        assertThat(saved.getPlayerCall().clubName()).isNull();
+        assertThat(response.getPlayerCall().slots()).isEqualTo(2);
+    }
+
+    @Test
+    void playerCallInThePastIsRejected() {
+        PlayerCall past = new PlayerCall(PostSport.BADMINTON, null, LocalDate.now().minusDays(1), LocalTime.of(19, 0),
+                LocalTime.of(21, 0), "Quận 7", 1, null, null, null, false);
+
+        assertThatThrownBy(() -> service.createPost(SavePostCommand.builder()
+                .actorId(UUID.randomUUID()).visibility(PostVisibility.PUBLIC).playerCall(past).build()))
+                .isInstanceOf(ServiceException.class);
+        verify(postRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("kèo thay CLB: chỉ chủ/quản lý đăng được, tên CLB lấy từ club-service")
+    void clubPlayerCallNeedsAManager() throws ServiceException {
+        UUID manager = UUID.randomUUID();
+        UUID clubId = UUID.randomUUID();
+        when(clubDirectory.find(clubId)).thenReturn(Optional.of(
+                new ClubDirectory.Club(clubId, "FC Bến Nghé", PostSport.FOOTBALL, List.of(manager))));
+
+        assertThatThrownBy(() -> service.createPost(SavePostCommand.builder()
+                .actorId(UUID.randomUUID()).visibility(PostVisibility.PUBLIC).playerCall(call(clubId)).build()))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("Chỉ chủ CLB hoặc quản lý");
+        verify(postRepository, never()).save(any());
+
+        savesReturnTheirArgument();
+        service.createPost(SavePostCommand.builder()
+                .actorId(manager).visibility(PostVisibility.PUBLIC).playerCall(call(clubId)).build());
+        assertThat(captureSavedPost().getPlayerCall().clubName()).isEqualTo("FC Bến Nghé");
+    }
+
+    @Test
+    void onlyTheAuthorMarksAPlayerCallFilled() throws ServiceException {
+        UUID author = UUID.randomUUID();
+        Post post = post(author, PostVisibility.PUBLIC);
+        post.setPlayerCall(call(null).withFilled(false));
+        when(postRepository.findById(post.getPostId())).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> service.setPlayerCallFilled(post.getPostId(), UUID.randomUUID(), true))
+                .isInstanceOf(ServiceException.class);
+
+        savesReturnTheirArgument();
+        assertThat(service.setPlayerCallFilled(post.getPostId(), author, true).getPlayerCall().filled()).isTrue();
+    }
+
+    @Test
+    void openPlayerCallsAskTheRepositoryForOpenCallsOfTheRightScope() {
+        when(postRepository.findFeed(any(), any())).thenReturn(Page.empty());
+
+        service.getOpenPlayerCalls(null, true, PostSport.FOOTBALL, 100);
+
+        org.mockito.ArgumentCaptor<PostRepository.FeedQuery> query = org.mockito.ArgumentCaptor.forClass(PostRepository.FeedQuery.class);
+        org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> page =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        verify(postRepository).findFeed(query.capture(), page.capture());
+        assertThat(query.getValue().playerCalls()).isEqualTo(new PostRepository.PlayerCallFilter(true, true));
+        assertThat(query.getValue().sport()).isEqualTo(PostSport.FOOTBALL);
+        assertThat(page.getValue().getPageSize()).isEqualTo(24);
     }
 
     @Test

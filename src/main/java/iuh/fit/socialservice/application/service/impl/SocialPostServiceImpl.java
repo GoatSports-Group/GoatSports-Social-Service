@@ -7,6 +7,7 @@ import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
+import iuh.fit.socialservice.application.port.external.ClubDirectory;
 import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
@@ -15,10 +16,12 @@ import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.service.SocialPostService;
 import iuh.fit.socialservice.application.service.impl.PostViewAssembler.Viewer;
 import iuh.fit.socialservice.domain.entity.Mention;
+import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
 import iuh.fit.socialservice.domain.entity.PostComment;
 import iuh.fit.socialservice.domain.entity.PostReaction;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import iuh.fit.socialservice.domain.enums.ReactionType;
@@ -53,6 +56,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final PostViewAssembler assembler;
     private final StorageKeyPromoter storageKeyPromoter;
     private final SocialEventPublisher eventPublisher;
+    private final ClubDirectory clubDirectory;
 
     // ---- reads ---------------------------------------------------------------------------------
 
@@ -66,6 +70,29 @@ public class SocialPostServiceImpl implements SocialPostService {
     public Page<PostResponseCommand> getSavedPosts(UUID viewerId, Pageable pageable) throws ServiceException {
         Viewer viewer = assembler.viewer(requireActor(viewerId));
         return page(postRepository.findSaved(feedQuery(viewer, new FeedFilter(false, null, null, null)), pageable), viewer);
+    }
+
+    @Override
+    public List<PostResponseCommand> getOpenPlayerCalls(UUID viewerId, boolean club, PostSport sport, int limit) {
+        Viewer viewer = assembler.viewer(viewerId);
+        PostRepository.FeedQuery base = feedQuery(viewer, new FeedFilter(false, sport, null, null));
+        PostRepository.FeedQuery query = new PostRepository.FeedQuery(base.viewerId(), base.friendIds(),
+                base.followingIds(), base.blockedUserIds(), false, sport, null, null,
+                new PostRepository.PlayerCallFilter(club, true));
+        Pageable page = PageRequest.of(0, Math.max(1, Math.min(limit, 24)),
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "publishedAt"));
+        return assembler.toResponses(postRepository.findFeed(query, page).getContent(), viewer);
+    }
+
+    @Override
+    public PostResponseCommand setPlayerCallFilled(UUID postId, UUID actorId, boolean filled) throws ServiceException {
+        Post post = ownedPost(postId, requireActor(actorId));
+        if (post.getStatus() != PostStatus.PUBLISHED || post.getPlayerCall() == null) {
+            throw new ServiceException("Bài viết không phải kèo tìm người chơi");
+        }
+        post.setPlayerCall(post.getPlayerCall().withFilled(filled));
+        post.setUpdatedAt(LocalDateTime.now());
+        return assembler.toResponse(postRepository.save(post), assembler.viewer(actorId));
     }
 
     @Override
@@ -99,11 +126,14 @@ public class SocialPostServiceImpl implements SocialPostService {
         Viewer actor = assembler.viewer(actorId);
         LocalDateTime now = LocalDateTime.now();
         String content = normalizeContent(command.getContent());
+        PlayerCall playerCall = playerCall(command.getPlayerCall(), actorId, null);
         Post post = postRepository.save(Post.builder()
                 .authorId(actorId)
                 .content(content)
-                .visibility(command.getVisibility())
-                .sport(command.getSport())
+                // Keo tim nguoi choi phai cong khai thi moi hien o Trang chu va trang CLB.
+                .visibility(playerCall != null ? PostVisibility.PUBLIC : command.getVisibility())
+                .sport(playerCall != null ? playerCall.sport() : command.getSport())
+                .playerCall(playerCall)
                 .status(PostStatus.PUBLISHED)
                 .createdAt(now)
                 .updatedAt(now)
@@ -132,12 +162,17 @@ public class SocialPostServiceImpl implements SocialPostService {
             }
             post.setContent(caption(command.getContent()));
         } else {
+            if (post.getPlayerCall() != null && command.getPlayerCall() == null) {
+                // Sua loi nhan cua keo ma client khong gui lai phan keo: giu nguyen keo.
+                command.setPlayerCall(post.getPlayerCall());
+            }
             command.validate();
             post.setContent(normalizeContent(command.getContent()));
-            post.setSport(command.getSport());
+            post.setPlayerCall(playerCall(command.getPlayerCall(), actorId, post.getPlayerCall()));
+            post.setSport(post.getPlayerCall() != null ? post.getPlayerCall().sport() : command.getSport());
             post.setAttachments(toAttachments(command.getAttachments()));
         }
-        post.setVisibility(command.getVisibility());
+        post.setVisibility(post.getPlayerCall() != null ? PostVisibility.PUBLIC : command.getVisibility());
         post.setTags(PostTags.extract(post.getContent()));
         post.setMentions(PostMentions.sanitize(command.getMentions(), post.getContent(), actorId, actor.blockedIds()));
         post.setUpdatedAt(LocalDateTime.now());
@@ -305,6 +340,28 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     // ---- helpers -------------------------------------------------------------------------------
 
+    /**
+     * Keo dang thay CLB: chi chu hoac quan ly CLB (theo club-service) moi dang duoc, va keo phai cung mon voi CLB.
+     * Ten CLB lay tu club-service, khong tin ten do client gui. Sua keo giu nguyen trang thai "da du nguoi".
+     */
+    private PlayerCall playerCall(PlayerCall requested, UUID actorId, PlayerCall previous) throws ServiceException {
+        if (requested == null) return null;
+        PlayerCall call = requested.withFilled(previous != null && previous.filled());
+        if (call.clubId() == null) return call.withClub(null, null);
+        if (previous != null && call.clubId().equals(previous.clubId()) && previous.clubName() != null) {
+            return call.withClub(previous.clubId(), previous.clubName());
+        }
+        ClubDirectory.Club club = clubDirectory.find(call.clubId())
+                .orElseThrow(() -> new ServiceException("Không tìm thấy câu lạc bộ"));
+        if (!club.managerIds().contains(actorId)) {
+            throw new ServiceException("Chỉ chủ CLB hoặc quản lý mới được đăng kèo thay CLB");
+        }
+        if (club.sportType() != null && club.sportType() != call.sport()) {
+            throw new ServiceException("Kèo phải cùng môn với câu lạc bộ");
+        }
+        return call.withClub(club.clubId(), club.name());
+    }
+
     private Page<PostResponseCommand> page(Page<Post> posts, Viewer viewer) {
         return new PageImpl<>(assembler.toResponses(posts.getContent(), viewer), posts.getPageable(),
                 posts.getTotalElements());
@@ -320,7 +377,8 @@ public class SocialPostServiceImpl implements SocialPostService {
                 followingOnly,
                 filter.sport(),
                 filter.authorId(),
-                PostTags.normalize(filter.tag()));
+                PostTags.normalize(filter.tag()),
+                filter.playerCallsOnly() ? new PostRepository.PlayerCallFilter(null, false) : null);
     }
 
     /** Chi bao nguoi moi duoc nhac va xem duoc bai; sua bai khong bao lai nguoi da nhac truoc do. */

@@ -22,6 +22,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -184,6 +185,16 @@ public class PostRepositoryImpl implements PostRepository {
         if (feed.authorId() != null) criteria.add(Criteria.where(author).is(feed.authorId().toString()));
         if (feed.sport() != null) criteria.add(Criteria.where(prefix + "sport").is(feed.sport()));
         if (feed.tag() != null) criteria.add(Criteria.where(prefix + "tags").is(feed.tag()));
+        if (feed.playerCalls() != null) {
+            String call = prefix + "playerCall";
+            criteria.add(Criteria.where(call).ne(null));
+            if (Boolean.TRUE.equals(feed.playerCalls().club())) criteria.add(Criteria.where(call + ".clubId").ne(null));
+            if (Boolean.FALSE.equals(feed.playerCalls().club())) criteria.add(Criteria.where(call + ".clubId").is(null));
+            if (feed.playerCalls().openOnly()) {
+                criteria.add(Criteria.where(call + ".filled").is(false));
+                criteria.add(Criteria.where(call + ".playDate").gte(LocalDate.now()));
+            }
+        }
         return new Criteria().andOperator(criteria.toArray(Criteria[]::new));
     }
 

@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.application.dto.response;
 
 import iuh.fit.socialservice.domain.entity.Mention;
+import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
@@ -33,6 +34,8 @@ public class PostResponseCommand {
     private PostResponseCommand sharedPost;
     /** Bai goc da bi xoa, bi an hoac nguoi xem khong co quyen xem. */
     private boolean sharedPostUnavailable;
+    /** Bai "Tim nguoi choi"; null voi bai thuong. */
+    private PlayerCall playerCall;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;

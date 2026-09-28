@@ -4,6 +4,8 @@ import iuh.fit.socialservice.domain.enums.AttachmentType;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -13,6 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +45,23 @@ public class SavePostRequest {
     @Size(max = 10, message = "Mỗi bài viết được đính kèm tối đa 10 tệp")
     @Builder.Default
     private List<AttachmentItem> attachments = new ArrayList<>();
+
+    /** Tuy chon: bai "Tim nguoi choi" cho keo dang thieu nguoi. */
+    @Valid
+    private PlayerCallRequest playerCall;
+
+    public record PlayerCallRequest(
+            @NotNull(message = "Hãy chọn môn") PostSport sport,
+            @Size(max = 40) String playFormat,
+            @NotNull(message = "Hãy chọn ngày chơi") LocalDate playDate,
+            @NotNull(message = "Hãy chọn giờ bắt đầu") LocalTime startTime,
+            @NotNull(message = "Hãy chọn giờ kết thúc") LocalTime endTime,
+            @NotBlank(message = "Hãy nhập khu vực hoặc sân chơi") @Size(max = 200) String location,
+            @Min(1) @Max(30) int slots,
+            @Size(max = 100) String skillNote,
+            /** Chi chu hoac quan ly CLB moi dang thay CLB duoc (kiem tra o service). */
+            UUID clubId
+    ) { }
 
     @Getter
     @Setter

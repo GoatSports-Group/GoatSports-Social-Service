@@ -26,14 +26,13 @@ public class Post {
     private PostVisibility visibility;
     private PostStatus status;
     private PostSport sport;
-    /** Bai goc khi day la bai chia se; null voi bai thuong. */
     private UUID sharedPostId;
+    private PlayerCall playerCall;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;
     @Builder.Default
     private List<PostAttachment> attachments = new ArrayList<>();
-    /** Hashtag trich tu noi dung (chu thuong, khong dau #). */
     @Builder.Default
     private List<String> tags = new ArrayList<>();
     @Builder.Default
