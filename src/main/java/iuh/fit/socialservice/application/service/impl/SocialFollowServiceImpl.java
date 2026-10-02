@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +102,17 @@ public class SocialFollowServiceImpl implements SocialFollowService {
         Follow existing = findFollow(followerId, FollowTargetType.USER, targetUserId);
         if (existing != null) followRepository.deleteById(existing.getFollowId());
         return userResponse(targetUserId, false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SavedVenue> getSavedVenues(UUID followerId) {
+        if (followerId == null) return List.of();
+        // ponytail: sap xep trong bo nho tren toan bo danh sach luu; them phan trang o DB neu mot nguoi luu hang nghin san.
+        return followRepository.findByFollowerIdAndTargetType(followerId, FollowTargetType.VENUE).stream()
+                .sorted(Comparator.comparing(Follow::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(follow -> new SavedVenue(follow.getTargetId(), follow.getCreatedAt()))
+                .toList();
     }
 
     @Override

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -25,6 +26,12 @@ public class SocialFollowController {
     private final SocialFollowService followService;
     private final SocialFollowConverter followConverter;
     private final CurrentUserProvider currentUserProvider;
+
+    @GetMapping("/me")
+    @ApiMessage("Lấy danh sách sân đã lưu thành công")
+    public ResponseEntity<List<SocialFollowService.SavedVenue>> getMySavedVenues() throws ServiceException {
+        return ResponseEntity.ok(followService.getSavedVenues(requiredUserId()));
+    }
 
     @GetMapping("/{venueId}")
     @ApiMessage("Lấy trạng thái lưu sân thành công")

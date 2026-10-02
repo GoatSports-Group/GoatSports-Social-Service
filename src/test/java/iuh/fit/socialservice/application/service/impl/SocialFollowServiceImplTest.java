@@ -160,4 +160,20 @@ class SocialFollowServiceImplTest {
         assertThat(excluded.getValue()).contains(follower, followed, friend, blocker);
         assertThat(limit.getValue()).isEqualTo(10);
     }
+
+    @Test
+    void savedVenuesAreNewestFirstAndOnlyVenues() {
+        UUID older = UUID.randomUUID();
+        UUID newer = UUID.randomUUID();
+        when(followRepository.findByFollowerIdAndTargetType(follower, FollowTargetType.VENUE)).thenReturn(List.of(
+                Follow.builder().followerId(follower).targetType(FollowTargetType.VENUE).targetId(older)
+                        .createdAt(java.time.LocalDateTime.of(2026, 9, 1, 8, 0)).build(),
+                Follow.builder().followerId(follower).targetType(FollowTargetType.VENUE).targetId(newer)
+                        .createdAt(java.time.LocalDateTime.of(2026, 10, 1, 8, 0)).build()));
+
+        assertThat(service.getSavedVenues(follower))
+                .extracting(saved -> saved.venueId())
+                .containsExactly(newer, older);
+        assertThat(service.getSavedVenues(null)).isEmpty();
+    }
 }
