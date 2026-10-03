@@ -66,6 +66,8 @@ public interface SocialPostService {
 
     /**
      * {@code sports}: cac mon cua nguoi xem ("Mon cua ban"), loc them ben canh {@code sport}.
+     * {@code followingOnly}: chi bai cua nguoi dang theo doi (khong gom bai cua chinh minh); {@code withFriends} gom ca
+     * ban be (khoi "Ban be dang hoat dong" o Trang chu).
      * {@code playerCallsOnly}: chi keo con mo (chua du nguoi, chua qua ngay choi), keo sap dien ra truoc.
      */
     /**
@@ -75,7 +77,12 @@ public interface SocialPostService {
     PostResponseCommand publishHighlight(PublishHighlightCommand command) throws ServiceException;
 
     record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
-                      Set<PostSport> sports) {
+                      Set<PostSport> sports, boolean withFriends) {
+        public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
+                          Set<PostSport> sports) {
+            this(followingOnly, sport, authorId, tag, playerCallsOnly, sports, false);
+        }
+
         public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly) {
             this(followingOnly, sport, authorId, tag, playerCallsOnly, Set.of());
         }

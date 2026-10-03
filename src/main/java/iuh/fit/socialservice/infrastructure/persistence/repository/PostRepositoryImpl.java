@@ -190,11 +190,9 @@ public class PostRepositoryImpl implements PostRepository {
         if (!feed.blockedUserIds().isEmpty()) {
             criteria.add(Criteria.where(author).nin(strings(feed.blockedUserIds())));
         }
+        // followingIds da duoc service chot (nguoi theo doi, co the kem ban be); rong thi bang tin rong.
         if (feed.followingOnly() && viewerId != null) {
-            Set<UUID> authors = new HashSet<>(feed.friendIds());
-            authors.addAll(feed.followingIds());
-            authors.add(viewerId);
-            criteria.add(Criteria.where(author).in(strings(authors)));
+            criteria.add(Criteria.where(author).in(strings(feed.followingIds())));
         }
         if (feed.authorId() != null) criteria.add(Criteria.where(author).is(feed.authorId().toString()));
         if (feed.sport() != null) criteria.add(Criteria.where(prefix + "sport").is(feed.sport()));

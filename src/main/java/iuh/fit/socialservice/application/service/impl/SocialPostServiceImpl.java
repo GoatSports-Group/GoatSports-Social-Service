@@ -457,7 +457,7 @@ public class SocialPostServiceImpl implements SocialPostService {
         return new PostRepository.FeedQuery(
                 viewer.id(),
                 viewer.friendIds(),
-                followingOnly ? assembler.followingIds(viewer.id()) : Set.of(),
+                followingOnly ? followedAuthors(viewer, filter.withFriends()) : Set.of(),
                 viewer.blockedIds(),
                 followingOnly,
                 filter.sport(),
@@ -465,6 +465,14 @@ public class SocialPostServiceImpl implements SocialPostService {
                 PostTags.normalize(filter.tag()),
                 filter.playerCallsOnly() ? new PostRepository.PlayerCallFilter(null, true) : null,
                 filter.sports() == null ? Set.of() : filter.sports());
+    }
+
+    /** Tac gia cua bang tin "Dang theo doi": nguoi minh theo doi (va ban be neu can), khong bao gio chinh minh. */
+    private Set<UUID> followedAuthors(Viewer viewer, boolean withFriends) {
+        Set<UUID> authors = new HashSet<>(assembler.followingIds(viewer.id()));
+        if (withFriends) authors.addAll(viewer.friendIds());
+        authors.remove(viewer.id());
+        return authors;
     }
 
     /** Chi bao nguoi moi duoc nhac va xem duoc bai; sua bai khong bao lai nguoi da nhac truoc do. */

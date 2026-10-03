@@ -1,5 +1,10 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import java.util.Set;
+import iuh.fit.socialservice.domain.enums.FriendshipStatus;
+import iuh.fit.socialservice.domain.enums.FollowTargetType;
+import iuh.fit.socialservice.domain.entity.Friendship;
+import iuh.fit.socialservice.domain.entity.Follow;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import iuh.fit.socialservice.application.dto.request.PublishHighlightCommand;
 import iuh.fit.socialservice.domain.enums.HighlightKind;
@@ -115,6 +120,28 @@ class SocialPostServiceImplTest {
         ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
         verify(postRepository).save(captor.capture());
         return captor.getValue();
+    }
+
+    @Test
+    void followingFeedShowsOnlyPeopleIFollowNeverMyOwnPosts() {
+        UUID me = UUID.randomUUID();
+        UUID followed = UUID.randomUUID();
+        UUID friend = UUID.randomUUID();
+        when(followRepository.findByFollowerIdAndTargetType(me, FollowTargetType.USER))
+                .thenReturn(List.of(Follow.builder().targetId(followed).build()));
+        when(friendshipRepository.findUserFriends(me, FriendshipStatus.ACCEPTED))
+                .thenReturn(List.of(Friendship.builder().requesterId(me).addresseeId(friend).build()));
+        when(postRepository.findFeed(any(), any())).thenReturn(Page.empty());
+        var page = PageRequest.of(0, 10);
+
+        service.getFeed(me, new SocialPostService.FeedFilter(true, null, null, null), page);
+        service.getFeed(me, new SocialPostService.FeedFilter(true, null, null, null, false, Set.of(), true), page);
+
+        ArgumentCaptor<PostRepository.FeedQuery> captor = ArgumentCaptor.forClass(PostRepository.FeedQuery.class);
+        verify(postRepository, org.mockito.Mockito.times(2)).findFeed(captor.capture(), any());
+        assertThat(captor.getAllValues().get(0).followingIds()).containsExactly(followed);
+        // Khoi "Ban be dang hoat dong" o Trang chu: kem ban be, van khong co chinh minh.
+        assertThat(captor.getAllValues().get(1).followingIds()).containsExactlyInAnyOrder(followed, friend);
     }
 
     // ---- create / update -------------------------------------------------------------------------

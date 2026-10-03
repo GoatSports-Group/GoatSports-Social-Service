@@ -54,11 +54,12 @@ public class SocialPostController {
             @RequestParam(required = false) String tag,
             @RequestParam(defaultValue = "false") boolean playerCallsOnly,
             @RequestParam(required = false) Set<PostSport> sports,
+            @RequestParam(defaultValue = "false") boolean withFriends,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
         SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag,
-                playerCallsOnly, sports == null ? Set.of() : sports);
+                playerCallsOnly, sports == null ? Set.of() : sports, withFriends);
         Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), filter, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
