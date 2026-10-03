@@ -1,5 +1,9 @@
 package iuh.fit.socialservice.infrastructure.persistence.repository;
 
+import iuh.fit.socialservice.domain.service.PostTags;
+import java.util.LinkedHashMap;
+import java.util.Comparator;
+import org.springframework.data.mongodb.core.aggregation.ArrayOperators;
 import iuh.fit.socialservice.domain.enums.HighlightKind;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
@@ -148,17 +152,64 @@ public class PostRepositoryImpl implements PostRepository {
     }
 
     @Override
-    public List<TagCount> findTrendingTags(LocalDateTime since, int limit) {
-        Aggregation aggregation = Aggregation.newAggregation(
-                Aggregation.match(publicSince(since).and("tags.0").exists(true)),
-                Aggregation.unwind("tags"),
-                Aggregation.group("tags").count().as("postCount"),
-                Aggregation.sort(Sort.by(Sort.Direction.DESC, "postCount").and(Sort.by("_id"))),
-                Aggregation.limit(limit)
-        );
-        return mongoTemplate.aggregate(aggregation, PostEntity.class, Document.class).getMappedResults().stream()
-                .map(row -> new TagCount(row.getString("_id"), ((Number) row.get("postCount")).longValue()))
+    public List<TagCount> findTrendingTags(LocalDateTime since, LocalDateTime risingSince, Collection<PostSport> sports,
+                                           int limit) {
+        Map<String, TagTally> tallies = new LinkedHashMap<>();
+        for (Document row : tagRows(since, sports)) {
+            Document id = row.get("_id", Document.class);
+            if (id.getString("key") == null) continue;
+            TagTally tally = tallies.computeIfAbsent(id.getString("key"), key -> new TagTally());
+            long posts = ((Number) row.get("posts")).longValue();
+            tally.posts += posts;
+            tally.forms.merge(id.getString("display"), posts, Long::sum);
+            tally.authors.addAll(row.getList("authors", String.class));
+        }
+        for (Document row : tagRows(risingSince, sports)) {
+            TagTally tally = tallies.get(row.get("_id", Document.class).getString("key"));
+            if (tally != null) tally.rising += ((Number) row.get("posts")).longValue();
+        }
+        return tallies.entrySet().stream()
+                .sorted(Comparator.<Map.Entry<String, TagTally>>comparingLong(entry -> entry.getValue().authors.size()).reversed()
+                        .thenComparing(Comparator.<Map.Entry<String, TagTally>>comparingLong(entry -> entry.getValue().rising).reversed())
+                        .thenComparing(Comparator.<Map.Entry<String, TagTally>>comparingLong(entry -> entry.getValue().posts).reversed())
+                        .thenComparing(Map.Entry::getKey))
+                .limit(limit)
+                .map(entry -> new TagCount(entry.getValue().display(), entry.getValue().posts, entry.getValue().authors.size()))
                 .toList();
+    }
+
+    /**
+     * Moi dong: mot (khoa, cach viet) voi so bai va tap tac gia. Gop va xep hang lam o Java.
+     * ponytail: quet het bai cong khai trong khoang (7-30 ngay); chuyen sang bang dem cap nhat dan neu bai len hang trieu.
+     */
+    private List<Document> tagRows(LocalDateTime since, Collection<PostSport> sports) {
+        Criteria match = publicSince(since).and("tags.0").exists(true);
+        if (sports != null && !sports.isEmpty()) match = match.and("sport").in(sports);
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(match),
+                Aggregation.unwind("tags", "tagIndex"),
+                Aggregation.project("authorId").and("tags").as("display")
+                        .and(ArrayOperators.ArrayElemAt.arrayOf("tagKeys").elementAt("tagIndex"))
+                        .as("key"),
+                Aggregation.group("key", "display").count().as("posts").addToSet("authorId").as("authors")
+        );
+        return mongoTemplate.aggregate(aggregation, PostEntity.class, Document.class).getMappedResults();
+    }
+
+    private static final class TagTally {
+        private final Map<String, Long> forms = new LinkedHashMap<>();
+        private final Set<String> authors = new HashSet<>();
+        private long posts;
+        private long rising;
+
+        /** Cach viet duoc dung nhieu nhat; bang nhau thi uu tien ban co dau ("bóngđá" truoc "bongda"), roi theo chu cai. */
+        String display() {
+            return forms.entrySet().stream()
+                    .sorted(Comparator.<Map.Entry<String, Long>>comparingLong(Map.Entry::getValue).reversed()
+                            .thenComparing(entry -> entry.getKey().equals(PostTags.key(entry.getKey())))
+                            .thenComparing(Map.Entry::getKey))
+                    .map(Map.Entry::getKey).findFirst().orElse("");
+        }
     }
 
     private static Criteria publicSince(LocalDateTime since) {
@@ -199,7 +250,7 @@ public class PostRepositoryImpl implements PostRepository {
         if (feed.sports() != null && !feed.sports().isEmpty()) {
             criteria.add(Criteria.where(prefix + "sport").in(feed.sports()));
         }
-        if (feed.tag() != null) criteria.add(Criteria.where(prefix + "tags").is(feed.tag()));
+        if (feed.tag() != null) criteria.add(Criteria.where(prefix + "tagKeys").is(feed.tag()));
         if (feed.playerCalls() != null) {
             String call = prefix + "playerCall";
             criteria.add(Criteria.where(call).ne(null));

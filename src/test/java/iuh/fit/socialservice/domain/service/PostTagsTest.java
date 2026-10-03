@@ -26,6 +26,15 @@ class PostTagsTest {
     }
 
     @Test
+    void accentedAndPlainSpellingsAreOneTopicAndStoredAsNfc() {
+        String decomposed = Normalizer.normalize("#bóngđá", Normalizer.Form.NFD);
+        // Cach viet dau tien duoc giu de hien thi, dang NFC; ban khong dau la cung chu de nen bi gop.
+        assertThat(PostTags.extract(decomposed + " tối nay, #bongda nhé")).containsExactly("bóngđá");
+        assertThat(PostTags.key("BóngĐá")).isEqualTo("bongda");
+        assertThat(PostTags.key(decomposed.substring(1))).isEqualTo("bongda");
+    }
+
+    @Test
     void capsTheNumberOfTags() {
         String content = String.join(" ", IntStream.range(0, 15).mapToObj(i -> "#tag" + i).toList());
         assertThat(PostTags.extract(content)).hasSize(PostTags.MAX_TAGS);
@@ -33,7 +42,7 @@ class PostTagsTest {
 
     @Test
     void normalizeAcceptsAFilterWithOrWithoutTheHash() {
-        assertThat(PostTags.normalize(" #BóngĐá ")).isEqualTo("bóngđá");
+        assertThat(PostTags.normalize(" #BóngĐá ")).isEqualTo("bongda");
         assertThat(PostTags.normalize("x")).isNull();
         assertThat(PostTags.normalize("a b")).isNull();
         assertThat(PostTags.normalize(null)).isNull();

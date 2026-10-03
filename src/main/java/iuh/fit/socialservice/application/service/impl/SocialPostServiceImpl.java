@@ -52,6 +52,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SocialPostServiceImpl implements SocialPostService {
     private static final int TRENDING_DAYS = 7;
+    /** Goi y khi go "#": nhin rong hon (30 ngay) de co du tu dung chung. */
+    private static final int SUGGEST_DAYS = 30;
 
     private final PostRepository postRepository;
     private final PostCommentRepository commentRepository;
@@ -118,8 +120,29 @@ public class SocialPostServiceImpl implements SocialPostService {
     }
 
     @Override
-    public List<PostRepository.TagCount> getTrendingTags(int limit) {
-        return postRepository.findTrendingTags(LocalDateTime.now().minusDays(TRENDING_DAYS), Math.max(1, Math.min(limit, 20)));
+    public List<PostRepository.TagCount> getTrendingTags(int limit, Set<PostSport> sports) {
+        int size = Math.max(1, Math.min(limit, 20));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime since = now.minusDays(TRENDING_DAYS);
+        LocalDateTime rising = now.minusDays(1);
+        List<PostRepository.TagCount> result = new ArrayList<>();
+        if (sports != null && !sports.isEmpty()) result.addAll(postRepository.findTrendingTags(since, rising, sports, size));
+        if (result.size() < size) {
+            Set<String> seen = new HashSet<>();
+            result.forEach(item -> seen.add(PostTags.key(item.tag())));
+            postRepository.findTrendingTags(since, rising, Set.of(), size + seen.size()).stream()
+                    .filter(item -> !seen.contains(PostTags.key(item.tag())))
+                    .limit(size - result.size())
+                    .forEach(result::add);
+        }
+        return result;
+    }
+
+    @Override
+    public List<PostRepository.TagCount> suggestTags(int limit) {
+        LocalDateTime now = LocalDateTime.now();
+        return postRepository.findTrendingTags(now.minusDays(SUGGEST_DAYS), now.minusDays(1), Set.of(),
+                Math.max(1, Math.min(limit, 50)));
     }
 
     @Override

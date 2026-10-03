@@ -77,8 +77,20 @@ public class SocialPostController {
 
     @GetMapping("/tags/trending")
     @ApiMessage("Lấy chủ đề nổi bật thành công")
-    public ResponseEntity<List<PostRepository.TagCount>> getTrendingTags(@RequestParam(defaultValue = "8") int limit) {
-        return ResponseEntity.ok(postService.getTrendingTags(limit));
+    public ResponseEntity<List<PostRepository.TagCount>> getTrendingTags(
+            @RequestParam(defaultValue = "8") int limit,
+            @RequestParam(required = false) PostSport sport,
+            @RequestParam(required = false) Set<PostSport> sports
+    ) {
+        Set<PostSport> filter = sport != null ? Set.of(sport) : sports == null ? Set.of() : sports;
+        return ResponseEntity.ok(postService.getTrendingTags(limit, filter));
+    }
+
+    /** Chu de hay dung 30 ngay qua, de goi y khi go "#" (client loc theo chu dang go). */
+    @GetMapping("/tags/suggestions")
+    @ApiMessage("Lấy gợi ý chủ đề thành công")
+    public ResponseEntity<List<PostRepository.TagCount>> suggestTags(@RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(postService.suggestTags(limit));
     }
 
     @GetMapping("/authors/{authorId}/stats")

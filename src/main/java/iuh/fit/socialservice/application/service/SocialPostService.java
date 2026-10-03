@@ -56,7 +56,13 @@ public interface SocialPostService {
     PostResponseCommand sharePost(UUID postId, SharePostCommand command) throws ServiceException;
 
     /** Hashtag dang duoc nhac nhieu trong 7 ngay qua (chi bai cong khai). */
-    List<PostRepository.TagCount> getTrendingTags(int limit);
+    /**
+     * Chu de noi bat 7 ngay. {@code sports} (mon dang loc / mon cua nguoi xem) dung truoc, thieu thi bu chu de chung.
+     */
+    List<PostRepository.TagCount> getTrendingTags(int limit, Set<PostSport> sports);
+
+    /** Chu de hay dung 30 ngay qua, cho goi y khi go "#" trong o soan bai. */
+    List<PostRepository.TagCount> suggestTags(int limit);
 
     /** Keo "Tim nguoi choi" con mo, moi dang truoc: {@code club} true = keo CLB, false = keo ca nhan. */
     List<PostResponseCommand> getOpenPlayerCalls(UUID viewerId, boolean club, PostSport sport, int limit);

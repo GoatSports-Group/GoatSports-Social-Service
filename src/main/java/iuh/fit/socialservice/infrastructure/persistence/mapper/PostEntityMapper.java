@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.persistence.mapper;
 
+import iuh.fit.socialservice.domain.service.PostTags;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostHighlightDoc;
 import iuh.fit.socialservice.domain.entity.PostHighlight;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
@@ -61,6 +62,9 @@ public class PostEntityMapper {
                 .attachments(domain.getAttachments() == null ? Collections.emptyList()
                         : domain.getAttachments().stream().map(this::toDocument).toList())
                 .tags(domain.getTags() == null ? Collections.emptyList() : domain.getTags())
+                .tagKeys(domain.getTags() == null ? new ArrayList<>()
+                        : domain.getTags().stream().map(PostTags::key)
+                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
                 .mentions(toMentionDocs(domain.getMentions()))
                 .build();
     }

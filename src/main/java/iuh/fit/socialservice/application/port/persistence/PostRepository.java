@@ -44,8 +44,12 @@ public interface PostRepository {
     List<AuthorActivity> findActiveAuthors(LocalDateTime since, Collection<UUID> excludedAuthorIds,
                                            Collection<PostSport> sports, int limit);
 
-    /** Hashtag xuat hien trong nhieu bai cong khai nhat tu {@code since}. */
-    List<TagCount> findTrendingTags(LocalDateTime since, int limit);
+    /**
+     * Chu de noi bat trong bai cong khai tu {@code since}: nhieu nguoi dung nhat, roi nhieu bai tu {@code risingSince}
+     * (dang len), roi tong so bai. Gop theo khoa khong dau; hien cach viet pho bien nhat.
+     * {@code sports} khong rong thi chi tinh bai cua cac mon do.
+     */
+    List<TagCount> findTrendingTags(LocalDateTime since, LocalDateTime risingSince, Collection<PostSport> sports, int limit);
 
     /**
      * Bo loc bang tin. Quyen xem (cong khai / ban be / cua minh) va danh sach chan luon ap dung;
@@ -85,6 +89,7 @@ public interface PostRepository {
     record AuthorActivity(UUID authorId, long postCount) {
     }
 
-    record TagCount(String tag, long postCount) {
+    /** @param authorCount so nguoi khac nhau da dung tag (mot nguoi dang nhieu bai van tinh 1) */
+    record TagCount(String tag, long postCount, long authorCount) {
     }
 }

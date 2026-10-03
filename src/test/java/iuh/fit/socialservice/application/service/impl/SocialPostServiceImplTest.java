@@ -144,6 +144,18 @@ class SocialPostServiceImplTest {
         assertThat(captor.getAllValues().get(1).followingIds()).containsExactlyInAnyOrder(followed, friend);
     }
 
+    @Test
+    void trendingPutsMySportsTopicsFirstThenFillsWithGeneralOnesWithoutDuplicates() {
+        when(postRepository.findTrendingTags(any(), any(), eq(Set.of(PostSport.BADMINTON)), eq(3)))
+                .thenReturn(List.of(new PostRepository.TagCount("cầulông", 3, 2)));
+        when(postRepository.findTrendingTags(any(), any(), eq(Set.of()), eq(4))).thenReturn(List.of(
+                new PostRepository.TagCount("caulong", 1, 1), new PostRepository.TagCount("bongda", 4, 3),
+                new PostRepository.TagCount("keotoi", 2, 2)));
+
+        assertThat(service.getTrendingTags(3, Set.of(PostSport.BADMINTON)))
+                .extracting(PostRepository.TagCount::tag).containsExactly("cầulông", "bongda", "keotoi");
+    }
+
     // ---- create / update -------------------------------------------------------------------------
 
     @Test
@@ -580,7 +592,8 @@ class SocialPostServiceImplTest {
 
         ArgumentCaptor<PostRepository.FeedQuery> query = ArgumentCaptor.forClass(PostRepository.FeedQuery.class);
         verify(postRepository).findFeed(query.capture(), eq(page));
-        assertThat(query.getValue().tag()).isEqualTo("bóngđá");
+        // Loc theo khoa khong dau: "#BóngĐá", "#bóngđá", "#bongda" cung ra mot chu de.
+        assertThat(query.getValue().tag()).isEqualTo("bongda");
     }
 
     @Test

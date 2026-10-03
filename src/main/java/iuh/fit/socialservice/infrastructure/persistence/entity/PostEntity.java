@@ -28,7 +28,7 @@ import java.util.List;
         @CompoundIndex(name = "post_feed_idx", def = "{'status': 1, 'visibility': 1, 'publishedAt': -1}"),
         @CompoundIndex(name = "post_author_created_idx", def = "{'authorId': 1, 'createdAt': -1}"),
         @CompoundIndex(name = "post_sport_feed_idx", def = "{'status': 1, 'sport': 1, 'publishedAt': -1}"),
-        @CompoundIndex(name = "post_tag_feed_idx", def = "{'tags': 1, 'status': 1, 'publishedAt': -1}"),
+        @CompoundIndex(name = "post_tag_key_feed_idx", def = "{'tagKeys': 1, 'status': 1, 'publishedAt': -1}"),
         @CompoundIndex(name = "post_shared_idx", def = "{'sharedPostId': 1, 'status': 1}"),
         @CompoundIndex(name = "post_player_call_idx",
                 def = "{'playerCall.filled': 1, 'playerCall.playDate': 1, 'status': 1, 'publishedAt': -1}", sparse = true)
@@ -56,6 +56,9 @@ public class PostEntity {
     private List<PostAttachmentDoc> attachments = new ArrayList<>();
     @Builder.Default
     private List<String> tags = new ArrayList<>();
+    /** Khoa so khop cua tung tag (cung thu tu voi tags): bo dau, đ → d. Loc va dem chu de theo truong nay. */
+    @Builder.Default
+    private List<String> tagKeys = new ArrayList<>();
     @Builder.Default
     private List<MentionDoc> mentions = new ArrayList<>();
 }

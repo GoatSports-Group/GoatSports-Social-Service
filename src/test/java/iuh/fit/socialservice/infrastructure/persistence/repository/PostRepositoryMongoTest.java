@@ -208,14 +208,51 @@ class PostRepositoryMongoTest {
 
     @Test
     void tagFilterAndTrendingTagsOnlyCountPublicPosts() {
-        publish(stranger, PostVisibility.PUBLIC, "#bongda #caulong", 5);
+        publish(stranger, PostVisibility.PUBLIC, "#bongda #cầulông", 5);
         publish(stranger, PostVisibility.PUBLIC, "#bongda tối nay", 4);
         publish(stranger, PostVisibility.FRIENDS, "#bongda riêng tư", 3);
 
-        assertThat(posts.findTrendingTags(LocalDateTime.now().minusDays(7), 5))
-                .containsExactly(new PostRepository.TagCount("bongda", 2), new PostRepository.TagCount("caulong", 1));
+        assertThat(trending(null, 5)).containsExactly(new PostRepository.TagCount("bongda", 2, 1),
+                new PostRepository.TagCount("cầulông", 1, 1));
+        // Loc bang khoa khong dau van ra bai viet co dau.
         Page<Post> tagged = posts.findFeed(visibility("caulong"), PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "publishedAt")));
         assertThat(tagged.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void trendingCountsPeopleNotPostsMergesSpellingsAndFollowsTheSport() {
+        // Mot nguoi spam 5 bai #spam van thua chu de 2 nguoi cung dung.
+        for (int i = 0; i < 5; i++) publish(stranger, PostVisibility.PUBLIC, "#spam " + i, 30 + i);
+        publish(stranger, PostVisibility.PUBLIC, "Tối nay #bóngđá", 20);
+        Post plain = publish(viewer, PostVisibility.PUBLIC, "Ai #bongda không", 10);
+        plain.setSport(iuh.fit.socialservice.domain.enums.PostSport.FOOTBALL);
+        posts.save(plain);
+
+        List<PostRepository.TagCount> top = trending(null, 5);
+        assertThat(top.get(0)).isEqualTo(new PostRepository.TagCount("bóngđá", 2, 2));
+        assertThat(top.get(1)).isEqualTo(new PostRepository.TagCount("spam", 5, 1));
+        // Loc theo mon: chi bai bong da.
+        assertThat(trending(Set.of(iuh.fit.socialservice.domain.enums.PostSport.FOOTBALL), 5))
+                .containsExactly(new PostRepository.TagCount("bongda", 1, 1));
+    }
+
+    @Test
+    void migrationRebuildsTagsAndKeysForOldPosts() {
+        Post old = publish(stranger, PostVisibility.PUBLIC, java.text.Normalizer.normalize("#CầuLông sáng mai", java.text.Normalizer.Form.NFD), 5);
+        template.updateFirst(new org.springframework.data.mongodb.core.query.Query(
+                        org.springframework.data.mongodb.core.query.Criteria.where("_id").is(old.getPostId().toString())),
+                new org.springframework.data.mongodb.core.query.Update().unset("tagKeys").set("tags", List.of("x")),
+                iuh.fit.socialservice.infrastructure.persistence.entity.PostEntity.class);
+
+        assertThat(new iuh.fit.socialservice.infrastructure.persistence.migration.PostTagKeyMigration(template).backfill()).isEqualTo(1);
+        assertThat(new iuh.fit.socialservice.infrastructure.persistence.migration.PostTagKeyMigration(template).backfill()).isZero();
+        assertThat(posts.findById(old.getPostId()).orElseThrow().getTags()).containsExactly("cầulông");
+        assertThat(posts.findFeed(visibility("caulong"), PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
+    }
+
+    private List<PostRepository.TagCount> trending(Set<iuh.fit.socialservice.domain.enums.PostSport> sports, int limit) {
+        LocalDateTime now = LocalDateTime.now();
+        return posts.findTrendingTags(now.minusDays(7), now.minusDays(1), sports == null ? Set.of() : sports, limit);
     }
 
     @Test
