@@ -16,6 +16,10 @@ public interface JpaFriendshipRepository extends JpaRepository<FriendshipEntity,
     @Query("SELECT f FROM FriendshipEntity f WHERE (f.requesterId = :userId OR f.addresseeId = :userId) AND f.status = :status")
     List<FriendshipEntity> findUserFriends(@Param("userId") UUID userId, @Param("status") FriendshipStatus status);
 
+    @Query("SELECT f FROM FriendshipEntity f WHERE f.status = :status AND (f.requesterId IN :ids OR f.addresseeId IN :ids)")
+    List<FriendshipEntity> findByStatusAndUserIn(@Param("status") FriendshipStatus status,
+                                                 @Param("ids") java.util.Collection<UUID> ids);
+
     List<FriendshipEntity> findByAddresseeIdAndStatus(UUID addresseeId, FriendshipStatus status);
     List<FriendshipEntity> findByRequesterIdAndStatus(UUID requesterId, FriendshipStatus status);
 

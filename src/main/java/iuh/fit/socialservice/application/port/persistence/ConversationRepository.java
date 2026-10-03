@@ -9,11 +9,22 @@ import java.util.UUID;
 
 public interface ConversationRepository {
     Conversation save(Conversation conversation);
+
     Optional<Conversation> findById(UUID conversationId);
+
     Page<Conversation> findUserConversations(UUID userId, Pageable pageable);
+
     Optional<Conversation> findDirectBetween(UUID u1, UUID u2);
+
     Optional<Conversation> findByContextId(UUID contextId);
     Optional<Conversation> findPairConversation(UUID u1, UUID u2);
+
     java.util.List<Conversation> findAllPairConversations();
+
+    java.util.List<CoMember> findCoMembers(UUID userId, java.util.Collection<iuh.fit.socialservice.domain.enums.ConversationType> types);
+
     void deleteById(UUID conversationId);
+
+    record CoMember(UUID userId, iuh.fit.socialservice.domain.enums.ConversationType type, String conversationName) {
+    }
 }

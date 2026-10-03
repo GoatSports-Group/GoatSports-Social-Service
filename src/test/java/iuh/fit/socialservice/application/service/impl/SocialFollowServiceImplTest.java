@@ -1,5 +1,8 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import iuh.fit.socialservice.domain.enums.ConversationType;
+import iuh.fit.socialservice.application.service.SocialFollowService;
+import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
 import iuh.fit.socialservice.application.dto.response.UserFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
@@ -50,6 +53,8 @@ class SocialFollowServiceImplTest {
     @Mock
     private PostRepository postRepository;
     @Mock
+    private ConversationRepository conversationRepository;
+    @Mock
     private SocialEventPublisher eventPublisher;
 
     private SocialFollowServiceImpl service;
@@ -60,7 +65,8 @@ class SocialFollowServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new SocialFollowServiceImpl(
-                followRepository, userBlockRepository, friendshipRepository, postRepository, eventPublisher);
+                followRepository, userBlockRepository, friendshipRepository, postRepository, conversationRepository,
+                eventPublisher);
         lenient().when(followRepository.countByTargetTypeAndTargetId(any(), any())).thenReturn(0L);
         lenient().when(followRepository.findByFollowerIdAndTargetType(any(), any())).thenReturn(List.of());
     }
@@ -142,41 +148,59 @@ class SocialFollowServiceImplTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void suggestionsExcludeSelfFollowedFriendsAndBlockedPeople() throws Exception {
+    void suggestionsNeverIncludeSelfFollowedFriendsOrBlockedPeopleWhateverTheSignal() throws Exception {
         UUID followed = UUID.randomUUID();
         UUID friend = UUID.randomUUID();
         UUID blocker = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
         when(followRepository.findByFollowerIdAndTargetType(follower, FollowTargetType.USER))
                 .thenReturn(List.of(Follow.builder().targetId(followed).build()));
         when(friendshipRepository.findUserFriends(follower, FriendshipStatus.ACCEPTED))
                 .thenReturn(List.of(Friendship.builder().requesterId(friend).addresseeId(follower).build()));
         when(userBlockRepository.findRelatedToUser(follower))
                 .thenReturn(List.of(UserBlock.builder().blockerId(blocker).blockedUserId(follower).build()));
-        when(postRepository.findActiveAuthors(any(), any(), any(), anyInt())).thenReturn(List.of());
+        // Ai cung chung nhom chat CLB voi minh, ke ca nhung nguoi phai loai.
+        when(conversationRepository.findCoMembers(eq(follower), any())).thenReturn(List.of(
+                new ConversationRepository.CoMember(followed, ConversationType.CLUB, "Weekend Club"),
+                new ConversationRepository.CoMember(friend, ConversationType.CLUB, "Weekend Club"),
+                new ConversationRepository.CoMember(blocker, ConversationType.CLUB, "Weekend Club"),
+                new ConversationRepository.CoMember(stranger, ConversationType.CLUB, "Weekend Club")));
+        when(postRepository.findActiveAuthors(any(), any(), any(), anyInt()))
+                .thenReturn(List.of(new PostRepository.AuthorActivity(follower, 3)));
 
-        service.getFollowSuggestions(follower, null, 50);
-
-        ArgumentCaptor<Collection<UUID>> excluded = ArgumentCaptor.forClass(Collection.class);
-        ArgumentCaptor<Integer> limit = ArgumentCaptor.forClass(Integer.class);
-        verify(postRepository).findActiveAuthors(any(), excluded.capture(), eq(Set.of()), limit.capture());
-        assertThat(excluded.getValue()).contains(follower, followed, friend, blocker);
-        assertThat(limit.getValue()).isEqualTo(10);
+        assertThat(service.getFollowSuggestions(follower, null, 50))
+                .extracting(SocialFollowService.FollowSuggestion::authorId).containsExactly(stranger);
     }
 
     @Test
-    void suggestionsPreferPeoplePlayingMySportsThenFillWithTheMostActive() throws Exception {
-        UUID badmintonPlayer = UUID.randomUUID();
+    void realConnectionsOutrankBusyPostersAndExplainThemselves() throws Exception {
+        UUID friend = UUID.randomUUID();
+        UUID opponent = UUID.randomUUID();
+        UUID clubmate = UUID.randomUUID();
         UUID busyPoster = UUID.randomUUID();
-        Set<PostSport> mine = Set.of(PostSport.BADMINTON);
-        when(postRepository.findActiveAuthors(any(), any(), eq(mine), eq(3)))
-                .thenReturn(List.of(new PostRepository.AuthorActivity(badmintonPlayer, 4)));
-        when(postRepository.findActiveAuthors(any(), argThat(ids -> ids.contains(badmintonPlayer)), eq(Set.of()), eq(2)))
-                .thenReturn(List.of(new PostRepository.AuthorActivity(busyPoster, 9)));
+        when(friendshipRepository.findUserFriends(follower, FriendshipStatus.ACCEPTED))
+                .thenReturn(List.of(Friendship.builder().requesterId(follower).addresseeId(friend).build()));
+        when(conversationRepository.findCoMembers(eq(follower), any())).thenReturn(List.of(
+                new ConversationRepository.CoMember(opponent, ConversationType.MATCH, "Kèo BADMINTON"),
+                new ConversationRepository.CoMember(clubmate, ConversationType.CLUB, "Weekend Club")));
+        // Doi thu cung la ban cua ban minh: them "1 ban chung".
+        when(friendshipRepository.findAcceptedOf(Set.of(friend)))
+                .thenReturn(List.of(Friendship.builder().requesterId(friend).addresseeId(opponent).build()));
+        when(postRepository.findActiveAuthors(any(), any(), eq(Set.of(PostSport.BADMINTON)), anyInt()))
+                .thenReturn(List.of(new PostRepository.AuthorActivity(clubmate, 2)));
+        when(postRepository.findActiveAuthors(any(), any(), eq(Set.of()), anyInt()))
+                .thenReturn(List.of(new PostRepository.AuthorActivity(busyPoster, 9),
+                        new PostRepository.AuthorActivity(clubmate, 2)));
 
-        assertThat(service.getFollowSuggestions(follower, mine, 3))
-                .extracting(PostRepository.AuthorActivity::authorId)
-                .containsExactly(badmintonPlayer, busyPoster);
+        List<SocialFollowService.FollowSuggestion> suggestions =
+                service.getFollowSuggestions(follower, Set.of(PostSport.BADMINTON), 5);
+
+        assertThat(suggestions).extracting(SocialFollowService.FollowSuggestion::authorId)
+                .containsExactly(opponent, clubmate, busyPoster);
+        assertThat(suggestions.get(0).reason()).isEqualTo("Đã ghép trận với bạn · 1 bạn chung");
+        assertThat(suggestions.get(1).reason()).isEqualTo("Cùng CLB Weekend Club · Hay đăng bài về môn bạn chơi");
+        assertThat(suggestions.get(2).reason()).isEqualTo("9 bài trong 30 ngày");
+        assertThat(suggestions.get(2).postCount()).isEqualTo(9);
     }
 
     @Test

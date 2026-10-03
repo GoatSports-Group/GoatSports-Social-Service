@@ -28,8 +28,8 @@ public interface SocialFollowService {
 
     List<UUID> getFollowingUserIds(UUID followerId);
 
-    /** Tac gia dang dang bai cong khai nhieu, chua duoc theo doi, khong phai ban va khong bi chan. */
-    /** Nguoi nang no de theo doi; uu tien nguoi dang bai cac mon {@code sports} cua nguoi xem. */
-    List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit)
-            throws ServiceException;
+    List<FollowSuggestion> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit) throws ServiceException;
+
+    record FollowSuggestion(UUID authorId, long postCount, String reason) {
+    }
 }

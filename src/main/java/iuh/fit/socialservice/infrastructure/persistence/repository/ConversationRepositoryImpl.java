@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.persistence.repository;
 
+import java.util.Collection;
 import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
 import iuh.fit.socialservice.domain.entity.Conversation;
 import iuh.fit.socialservice.domain.enums.ConversationType;
@@ -100,6 +101,14 @@ public class ConversationRepositoryImpl implements ConversationRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CoMember> findCoMembers(UUID userId, Collection<ConversationType> types) {
+        if (types.isEmpty()) return List.of();
+        return jpaConversationRepository.findCoMembers(userId, types).stream()
+                .map(row -> new CoMember((UUID) row[0], (ConversationType) row[1], (String) row[2]))
+                .toList();
+    }
+
+    @Override
     public List<Conversation> findAllPairConversations() {
         return jpaConversationRepository.findAllPairConversations(PAIR_CONVERSATION_TYPES).stream()
                 .map(conversationEntityMapper::toDomain)

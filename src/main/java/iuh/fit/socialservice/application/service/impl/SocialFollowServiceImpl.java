@@ -1,5 +1,10 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import java.util.HashMap;
+import iuh.fit.socialservice.domain.service.FollowSuggestionRanker;
+import iuh.fit.socialservice.domain.enums.ConversationType;
+import iuh.fit.socialservice.domain.entity.Friendship;
+import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import java.util.ArrayList;
 import iuh.fit.socialservice.application.dto.response.UserFollowStatusResponseCommand;
@@ -33,6 +38,13 @@ public class SocialFollowServiceImpl implements SocialFollowService {
     private final UserBlockRepository userBlockRepository;
     private final FriendshipRepository friendshipRepository;
     private final PostRepository postRepository;
+    private final ConversationRepository conversationRepository;
+
+    /** Nhom chat noi len moi lien he that; nhom chat tu tao (GROUP) thi khong. */
+    private static final Set<ConversationType> RELATED_CHATS =
+            Set.of(ConversationType.MATCH, ConversationType.CLUB, ConversationType.DIRECT, ConversationType.TOURNAMENT);
+    /** So nguoi nang no lay ra de tron vao xep hang (chi de pha hoa). */
+    private static final int CANDIDATE_POOL = 30;
     private final SocialEventPublisher eventPublisher;
 
     @Override
@@ -128,30 +140,49 @@ public class SocialFollowServiceImpl implements SocialFollowService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit)
+    public List<FollowSuggestion> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit)
             throws ServiceException {
         if (viewerId == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
+        int size = Math.max(1, Math.min(limit, 10));
+        Set<UUID> friends = new HashSet<>();
+        friendshipRepository.findUserFriends(viewerId, FriendshipStatus.ACCEPTED).forEach(friendship ->
+                friends.add(viewerId.equals(friendship.getRequesterId()) ? friendship.getAddresseeId() : friendship.getRequesterId()));
         Set<UUID> excluded = new HashSet<>(getFollowingUserIds(viewerId));
         excluded.add(viewerId);
-        friendshipRepository.findUserFriends(viewerId, FriendshipStatus.ACCEPTED).forEach(friendship -> {
-            excluded.add(friendship.getRequesterId());
-            excluded.add(friendship.getAddresseeId());
-        });
+        excluded.addAll(friends);
         userBlockRepository.findRelatedToUser(viewerId).forEach(block -> {
             excluded.add(block.getBlockerId());
             excluded.add(block.getBlockedUserId());
         });
-        int size = Math.max(1, Math.min(limit, 10));
-        LocalDateTime since = LocalDateTime.now().minusDays(30);
-        if (sports == null || sports.isEmpty()) return postRepository.findActiveAuthors(since, excluded, Set.of(), size);
-        // Nguoi choi cung mon dung truoc; thieu thi bu bang nguoi nang no nhat noi chung.
-        List<PostRepository.AuthorActivity> result = new ArrayList<>(
-                postRepository.findActiveAuthors(since, excluded, sports, size));
-        if (result.size() < size) {
-            result.forEach(item -> excluded.add(item.authorId()));
-            result.addAll(postRepository.findActiveAuthors(since, excluded, Set.of(), size - result.size()));
+
+        FollowSuggestionRanker ranker = new FollowSuggestionRanker(excluded);
+        for (ConversationRepository.CoMember member : conversationRepository.findCoMembers(viewerId, RELATED_CHATS)) {
+            switch (member.type()) {
+                case MATCH -> ranker.playedWith(member.userId());
+                case CLUB -> ranker.sameClub(member.userId(), member.conversationName());
+                case DIRECT -> ranker.chattedWith(member.userId());
+                case TOURNAMENT -> ranker.sameTournament(member.userId(), member.conversationName());
+                default -> { }
+            }
         }
-        return result;
+        // Ban chung: dem moi nguoi la ban cua bao nhieu ban cua minh.
+        Map<UUID, Integer> mutual = new HashMap<>();
+        for (Friendship friendship : friendshipRepository.findAcceptedOf(friends)) {
+            UUID other = friends.contains(friendship.getRequesterId()) ? friendship.getAddresseeId() : friendship.getRequesterId();
+            mutual.merge(other, 1, Integer::sum);
+        }
+        mutual.forEach(ranker::mutualFriends);
+
+        LocalDateTime since = LocalDateTime.now().minusDays(30);
+        if (sports != null && !sports.isEmpty()) {
+            postRepository.findActiveAuthors(since, excluded, sports, CANDIDATE_POOL)
+                    .forEach(item -> ranker.postsInMySports(item.authorId(), item.postCount()));
+        }
+        postRepository.findActiveAuthors(since, excluded, Set.of(), CANDIDATE_POOL)
+                .forEach(item -> ranker.activePoster(item.authorId(), item.postCount()));
+        return ranker.top(size).stream()
+                .map(item -> new FollowSuggestion(item.userId(), item.postCount(), item.reason()))
+                .toList();
     }
 
     private void requireUsers(UUID targetUserId, UUID followerId) throws ServiceException {

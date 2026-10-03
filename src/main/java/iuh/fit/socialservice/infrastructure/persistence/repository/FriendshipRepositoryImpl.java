@@ -37,6 +37,14 @@ public class FriendshipRepositoryImpl implements FriendshipRepository {
     }
 
     @Override
+    public List<Friendship> findAcceptedOf(java.util.Collection<UUID> userIds) {
+        if (userIds.isEmpty()) return List.of();
+        return jpaFriendshipRepository.findByStatusAndUserIn(FriendshipStatus.ACCEPTED, userIds).stream()
+                .map(friendshipEntityMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Friendship> findByAddresseeIdAndStatus(UUID addresseeId, FriendshipStatus status) {
         return jpaFriendshipRepository.findByAddresseeIdAndStatus(addresseeId, status).stream()
                 .map(friendshipEntityMapper::toDomain)

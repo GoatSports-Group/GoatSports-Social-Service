@@ -51,6 +51,17 @@ public interface JpaConversationRepository extends JpaRepository<ConversationEnt
             @Param("secondUserId") UUID secondUserId
     );
 
+    @Query("""
+            SELECT DISTINCT other.userId, c.type, c.name
+            FROM ConversationMemberEntity me
+            JOIN me.conversation c
+            JOIN ConversationMemberEntity other ON other.conversation = c
+            WHERE me.userId = :userId AND me.leftAt IS NULL
+              AND other.userId <> :userId AND other.leftAt IS NULL
+              AND c.type IN :types
+            """)
+    List<Object[]> findCoMembers(@Param("userId") UUID userId, @Param("types") Collection<ConversationType> types);
+
     @EntityGraph(attributePaths = "members")
     List<ConversationEntity> findByContextIdOrderByCreatedAtAsc(@Param("contextId") UUID contextId);
 

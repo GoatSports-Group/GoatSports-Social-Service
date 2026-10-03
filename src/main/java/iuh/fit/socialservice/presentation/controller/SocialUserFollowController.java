@@ -59,7 +59,7 @@ public class SocialUserFollowController {
 
     @GetMapping("/suggestions")
     @ApiMessage("Lay goi y theo doi thanh cong")
-    public ResponseEntity<List<PostRepository.AuthorActivity>> getSuggestions(
+    public ResponseEntity<List<SocialFollowService.FollowSuggestion>> getSuggestions(
             @RequestParam(defaultValue = "5") int limit,
             @RequestParam(required = false) Set<PostSport> sports
     ) throws ServiceException {
