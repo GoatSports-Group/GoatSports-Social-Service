@@ -168,7 +168,7 @@ class SocialFollowServiceImplTest {
         when(postRepository.findActiveAuthors(any(), any(), any(), anyInt()))
                 .thenReturn(List.of(new PostRepository.AuthorActivity(follower, 3)));
 
-        assertThat(service.getFollowSuggestions(follower, null, 50))
+        assertThat(service.getFollowSuggestions(follower, null, 50, 0))
                 .extracting(SocialFollowService.FollowSuggestion::authorId).containsExactly(stranger);
     }
 
@@ -193,7 +193,7 @@ class SocialFollowServiceImplTest {
                         new PostRepository.AuthorActivity(clubmate, 2)));
 
         List<SocialFollowService.FollowSuggestion> suggestions =
-                service.getFollowSuggestions(follower, Set.of(PostSport.BADMINTON), 5);
+                service.getFollowSuggestions(follower, Set.of(PostSport.BADMINTON), 5, 0);
 
         assertThat(suggestions).extracting(SocialFollowService.FollowSuggestion::authorId)
                 .containsExactly(opponent, clubmate, busyPoster);
@@ -201,6 +201,17 @@ class SocialFollowServiceImplTest {
         assertThat(suggestions.get(1).reason()).isEqualTo("Cùng CLB Weekend Club · Hay đăng bài về môn bạn chơi");
         assertThat(suggestions.get(2).reason()).isEqualTo("9 bài trong 30 ngày");
         assertThat(suggestions.get(2).postCount()).isEqualTo(9);
+    }
+
+    @Test
+    void seeAllSuggestionsPagesWithAnOffset() throws Exception {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        when(postRepository.findActiveAuthors(any(), any(), eq(Set.of()), anyInt())).thenReturn(List.of(
+                new PostRepository.AuthorActivity(first, 9), new PostRepository.AuthorActivity(second, 3)));
+
+        assertThat(service.getFollowSuggestions(follower, null, 1, 1))
+                .extracting(SocialFollowService.FollowSuggestion::authorId).containsExactly(second);
     }
 
     @Test

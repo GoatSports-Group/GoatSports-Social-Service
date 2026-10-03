@@ -22,4 +22,12 @@ public interface JpaFollowRepository extends JpaRepository<FollowEntity, UUID> {
     List<FollowEntity> findByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId);
 
     long countByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId);
+
+    org.springframework.data.domain.Page<FollowEntity> findByTargetTypeAndTargetIdAndFollowerIdNotIn(
+            FollowTargetType targetType, UUID targetId, java.util.Collection<UUID> hidden,
+            org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<FollowEntity> findByFollowerIdAndTargetTypeAndTargetIdNotIn(
+            UUID followerId, FollowTargetType targetType, java.util.Collection<UUID> hidden,
+            org.springframework.data.domain.Pageable pageable);
 }

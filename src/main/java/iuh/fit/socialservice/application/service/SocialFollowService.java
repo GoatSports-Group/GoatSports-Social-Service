@@ -28,7 +28,19 @@ public interface SocialFollowService {
 
     List<UUID> getFollowingUserIds(UUID followerId);
 
-    List<FollowSuggestion> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit) throws ServiceException;
+    List<FollowSuggestion> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit, int offset)
+            throws ServiceException;
+
+    /** Nguoi theo doi {@code userId} (cuon vo han), bo nguoi co quan he chan voi nguoi xem. */
+    org.springframework.data.domain.Page<FollowEntry> getFollowers(UUID userId, UUID viewerId,
+                                                                   org.springframework.data.domain.Pageable pageable);
+
+    /** Nguoi {@code userId} dang theo doi (cuon vo han), bo nguoi co quan he chan voi nguoi xem. */
+    org.springframework.data.domain.Page<FollowEntry> getFollowing(UUID userId, UUID viewerId,
+                                                                   org.springframework.data.domain.Pageable pageable);
+
+    record FollowEntry(UUID userId, java.time.LocalDateTime followedAt) {
+    }
 
     record FollowSuggestion(UUID authorId, long postCount, String reason) {
     }

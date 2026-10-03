@@ -47,6 +47,7 @@ class SuggestionQueriesPostgresTest {
                     .addAnnotatedClass(ConversationEntity.class)
                     .addAnnotatedClass(ConversationMemberEntity.class)
                     .addAnnotatedClass(FriendshipEntity.class)
+                    .addAnnotatedClass(iuh.fit.socialservice.infrastructure.persistence.entity.FollowEntity.class)
                     .setProperty("hibernate.connection.url", url)
                     .setProperty("hibernate.hbm2ddl.auto", "none")
                     .setProperty("hibernate.connection.readOnly", "true")
@@ -76,6 +77,20 @@ class SuggestionQueriesPostgresTest {
             assertThat(row[0]).isInstanceOf(UUID.class).isNotEqualTo(anyMember);
             assertThat(row[1]).isInstanceOf(ConversationType.class);
         });
+    }
+
+    @Test
+    void pagedFollowerAndFollowingQueriesRun() {
+        var follows = new JpaRepositoryFactory(entityManager)
+                .getRepository(iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFollowRepository.class);
+        var page = org.springframework.data.domain.PageRequest.of(0, 5,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        UUID nobody = new UUID(0, 0);
+
+        assertThat(follows.findByTargetTypeAndTargetIdAndFollowerIdNotIn(
+                iuh.fit.socialservice.domain.enums.FollowTargetType.USER, UUID.randomUUID(), List.of(nobody), page)).isEmpty();
+        assertThat(follows.findByFollowerIdAndTargetTypeAndTargetIdNotIn(
+                UUID.randomUUID(), iuh.fit.socialservice.domain.enums.FollowTargetType.USER, List.of(nobody), page)).isEmpty();
     }
 
     @Test

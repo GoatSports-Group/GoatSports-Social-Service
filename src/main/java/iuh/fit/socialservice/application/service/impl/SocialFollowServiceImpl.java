@@ -1,5 +1,7 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import java.util.HashMap;
 import iuh.fit.socialservice.domain.service.FollowSuggestionRanker;
 import iuh.fit.socialservice.domain.enums.ConversationType;
@@ -44,7 +46,9 @@ public class SocialFollowServiceImpl implements SocialFollowService {
     private static final Set<ConversationType> RELATED_CHATS =
             Set.of(ConversationType.MATCH, ConversationType.CLUB, ConversationType.DIRECT, ConversationType.TOURNAMENT);
     /** So nguoi nang no lay ra de tron vao xep hang (chi de pha hoa). */
-    private static final int CANDIDATE_POOL = 30;
+    private static final int CANDIDATE_POOL = 100;
+    /** "Xem tat ca" goi y cuon toi da 200 nguoi; xa hon goi y khong con y nghia. */
+    private static final int MAX_SUGGESTION_OFFSET = 200;
     private final SocialEventPublisher eventPublisher;
 
     @Override
@@ -140,10 +144,11 @@ public class SocialFollowServiceImpl implements SocialFollowService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<FollowSuggestion> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit)
+    public List<FollowSuggestion> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit, int offset)
             throws ServiceException {
         if (viewerId == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
-        int size = Math.max(1, Math.min(limit, 10));
+        int size = Math.max(1, Math.min(limit, 20));
+        int skip = Math.max(0, Math.min(offset, MAX_SUGGESTION_OFFSET));
         Set<UUID> friends = new HashSet<>();
         friendshipRepository.findUserFriends(viewerId, FriendshipStatus.ACCEPTED).forEach(friendship ->
                 friends.add(viewerId.equals(friendship.getRequesterId()) ? friendship.getAddresseeId() : friendship.getRequesterId()));
@@ -180,9 +185,35 @@ public class SocialFollowServiceImpl implements SocialFollowService {
         }
         postRepository.findActiveAuthors(since, excluded, Set.of(), CANDIDATE_POOL)
                 .forEach(item -> ranker.activePoster(item.authorId(), item.postCount()));
-        return ranker.top(size).stream()
+        return ranker.top(skip + size).stream().skip(skip)
                 .map(item -> new FollowSuggestion(item.userId(), item.postCount(), item.reason()))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<FollowEntry> getFollowers(UUID userId, UUID viewerId, Pageable pageable) {
+        return followRepository.findFollowersOf(userId, hiddenFor(viewerId), pageable)
+                .map(follow -> new FollowEntry(follow.getFollowerId(), follow.getCreatedAt()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<FollowEntry> getFollowing(UUID userId, UUID viewerId, Pageable pageable) {
+        return followRepository.findFollowingOf(userId, hiddenFor(viewerId), pageable)
+                .map(follow -> new FollowEntry(follow.getTargetId(), follow.getCreatedAt()));
+    }
+
+    /** Nguoi xem va nguoi kia chan nhau thi khong thay nhau trong danh sach. */
+    private Set<UUID> hiddenFor(UUID viewerId) {
+        Set<UUID> hidden = new HashSet<>();
+        if (viewerId == null) return hidden;
+        userBlockRepository.findRelatedToUser(viewerId).forEach(block -> {
+            hidden.add(block.getBlockerId());
+            hidden.add(block.getBlockedUserId());
+        });
+        hidden.remove(viewerId);
+        return hidden;
     }
 
     private void requireUsers(UUID targetUserId, UUID followerId) throws ServiceException {

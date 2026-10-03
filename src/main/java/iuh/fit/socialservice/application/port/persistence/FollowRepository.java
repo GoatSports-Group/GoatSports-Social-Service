@@ -21,4 +21,10 @@ public interface FollowRepository {
     List<Follow> findByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId);
 
     long countByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId);
+
+    org.springframework.data.domain.Page<Follow> findFollowersOf(UUID userId, java.util.Collection<UUID> hidden,
+                                                                 org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<Follow> findFollowingOf(UUID userId, java.util.Collection<UUID> hidden,
+                                                                 org.springframework.data.domain.Pageable pageable);
 }

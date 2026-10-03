@@ -1,5 +1,8 @@
 package iuh.fit.socialservice.presentation.controller;
 
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Pageable;
+import iuh.fit.socialservice.presentation.response.PageResponse;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import java.util.Set;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
@@ -61,9 +64,28 @@ public class SocialUserFollowController {
     @ApiMessage("Lay goi y theo doi thanh cong")
     public ResponseEntity<List<SocialFollowService.FollowSuggestion>> getSuggestions(
             @RequestParam(defaultValue = "5") int limit,
+            @RequestParam(defaultValue = "0") int offset,
             @RequestParam(required = false) Set<PostSport> sports
     ) throws ServiceException {
-        return ResponseEntity.ok(followService.getFollowSuggestions(requiredUserId(), sports, limit));
+        return ResponseEntity.ok(followService.getFollowSuggestions(requiredUserId(), sports, limit, offset));
+    }
+
+    @GetMapping("/{userId}/followers")
+    @ApiMessage("Lay danh sach nguoi theo doi thanh cong")
+    public ResponseEntity<PageResponse<SocialFollowService.FollowEntry>> getFollowers(
+            @PathVariable UUID userId,
+            @PageableDefault(size = 20) Pageable pageable
+    ) throws ServiceException {
+        return ResponseEntity.ok(PageResponse.from(followService.getFollowers(userId, requiredUserId(), pageable)));
+    }
+
+    @GetMapping("/{userId}/following")
+    @ApiMessage("Lay danh sach dang theo doi thanh cong")
+    public ResponseEntity<PageResponse<SocialFollowService.FollowEntry>> getFollowing(
+            @PathVariable UUID userId,
+            @PageableDefault(size = 20) Pageable pageable
+    ) throws ServiceException {
+        return ResponseEntity.ok(PageResponse.from(followService.getFollowing(userId, requiredUserId(), pageable)));
     }
 
     @GetMapping("/me/following")
