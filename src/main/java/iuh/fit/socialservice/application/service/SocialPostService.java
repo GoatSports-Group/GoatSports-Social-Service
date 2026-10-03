@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.application.service;
 
+import java.util.Set;
 import iuh.fit.socialservice.application.dto.request.SaveCommentCommand;
 import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
@@ -62,7 +63,16 @@ public interface SocialPostService {
     /** Nguoi dang danh dau keo da du nguoi (hoac mo lai). */
     PostResponseCommand setPlayerCallFilled(UUID postId, UUID actorId, boolean filled) throws ServiceException;
 
-    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly) {
+    /**
+     * {@code sports}: cac mon cua nguoi xem ("Mon cua ban"), loc them ben canh {@code sport}.
+     * {@code playerCallsOnly}: chi keo con mo (chua du nguoi, chua qua ngay choi), keo sap dien ra truoc.
+     */
+    record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
+                      Set<PostSport> sports) {
+        public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly) {
+            this(followingOnly, sport, authorId, tag, playerCallsOnly, Set.of());
+        }
+
         public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag) {
             this(followingOnly, sport, authorId, tag, false);
         }

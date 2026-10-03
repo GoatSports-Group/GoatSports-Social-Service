@@ -31,8 +31,12 @@ public interface PostRepository {
     /** Bai goc → so bai chia se dang hien thi tro toi no. */
     Map<UUID, Long> countPublishedShares(Collection<UUID> originalIds);
 
-    /** Tac gia co nhieu bai cong khai nhat tu {@code since}, bo qua {@code excludedAuthorIds}. */
-    List<AuthorActivity> findActiveAuthors(LocalDateTime since, Collection<UUID> excludedAuthorIds, int limit);
+    /**
+     * Tac gia co nhieu bai cong khai nhat tu {@code since}, bo qua {@code excludedAuthorIds};
+     * {@code sports} khong rong thi chi dem bai cua cac mon do.
+     */
+    List<AuthorActivity> findActiveAuthors(LocalDateTime since, Collection<UUID> excludedAuthorIds,
+                                           Collection<PostSport> sports, int limit);
 
     /** Hashtag xuat hien trong nhieu bai cong khai nhat tu {@code since}. */
     List<TagCount> findTrendingTags(LocalDateTime since, int limit);
@@ -50,11 +54,18 @@ public interface PostRepository {
             PostSport sport,
             UUID authorId,
             String tag,
-            PlayerCallFilter playerCalls
+            PlayerCallFilter playerCalls,
+            Set<PostSport> sports
     ) {
         public FeedQuery(UUID viewerId, Set<UUID> friendIds, Set<UUID> followingIds, Set<UUID> blockedUserIds,
                          boolean followingOnly, PostSport sport, UUID authorId, String tag) {
             this(viewerId, friendIds, followingIds, blockedUserIds, followingOnly, sport, authorId, tag, null);
+        }
+
+        public FeedQuery(UUID viewerId, Set<UUID> friendIds, Set<UUID> followingIds, Set<UUID> blockedUserIds,
+                         boolean followingOnly, PostSport sport, UUID authorId, String tag, PlayerCallFilter playerCalls) {
+            this(viewerId, friendIds, followingIds, blockedUserIds, followingOnly, sport, authorId, tag, playerCalls,
+                    Set.of());
         }
     }
 

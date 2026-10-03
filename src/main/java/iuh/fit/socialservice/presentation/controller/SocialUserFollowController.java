@@ -1,5 +1,7 @@
 package iuh.fit.socialservice.presentation.controller;
 
+import iuh.fit.socialservice.domain.enums.PostSport;
+import java.util.Set;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
@@ -58,9 +60,10 @@ public class SocialUserFollowController {
     @GetMapping("/suggestions")
     @ApiMessage("Lay goi y theo doi thanh cong")
     public ResponseEntity<List<PostRepository.AuthorActivity>> getSuggestions(
-            @RequestParam(defaultValue = "5") int limit
+            @RequestParam(defaultValue = "5") int limit,
+            @RequestParam(required = false) Set<PostSport> sports
     ) throws ServiceException {
-        return ResponseEntity.ok(followService.getFollowSuggestions(requiredUserId(), limit));
+        return ResponseEntity.ok(followService.getFollowSuggestions(requiredUserId(), sports, limit));
     }
 
     @GetMapping("/me/following")

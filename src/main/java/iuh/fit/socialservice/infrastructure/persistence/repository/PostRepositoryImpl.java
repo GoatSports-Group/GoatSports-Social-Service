@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.persistence.repository;
 
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.enums.PostStatus;
@@ -114,14 +115,16 @@ public class PostRepositoryImpl implements PostRepository {
     public List<AuthorActivity> findActiveAuthors(
             LocalDateTime since,
             Collection<UUID> excludedAuthorIds,
+            Collection<PostSport> sports,
             int limit
     ) {
         // Chi dem bai cong khai: goi y khong duoc de lo hoat dong cua bai chi ban be xem.
+        Criteria match = new Criteria().andOperator(
+                publicSince(since),
+                Criteria.where("authorId").nin(strings(excludedAuthorIds)));
+        if (!sports.isEmpty()) match = new Criteria().andOperator(match, Criteria.where("sport").in(sports));
         Aggregation aggregation = Aggregation.newAggregation(
-                Aggregation.match(new Criteria().andOperator(
-                        publicSince(since),
-                        Criteria.where("authorId").nin(strings(excludedAuthorIds))
-                )),
+                Aggregation.match(match),
                 Aggregation.group("authorId").count().as("postCount"),
                 Aggregation.sort(Sort.by(Sort.Direction.DESC, "postCount")),
                 Aggregation.limit(limit)
@@ -184,6 +187,9 @@ public class PostRepositoryImpl implements PostRepository {
         }
         if (feed.authorId() != null) criteria.add(Criteria.where(author).is(feed.authorId().toString()));
         if (feed.sport() != null) criteria.add(Criteria.where(prefix + "sport").is(feed.sport()));
+        if (feed.sports() != null && !feed.sports().isEmpty()) {
+            criteria.add(Criteria.where(prefix + "sport").in(feed.sports()));
+        }
         if (feed.tag() != null) criteria.add(Criteria.where(prefix + "tags").is(feed.tag()));
         if (feed.playerCalls() != null) {
             String call = prefix + "playerCall";

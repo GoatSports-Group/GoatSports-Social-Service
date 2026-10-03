@@ -58,12 +58,21 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final SocialEventPublisher eventPublisher;
     private final ClubDirectory clubDirectory;
 
+    private static final org.springframework.data.domain.Sort CALL_ORDER = org.springframework.data.domain.Sort.by(
+            org.springframework.data.domain.Sort.Order.asc("playerCall.playDate"),
+            org.springframework.data.domain.Sort.Order.asc("playerCall.startTime"),
+            org.springframework.data.domain.Sort.Order.desc("publishedAt"));
+
     // ---- reads ---------------------------------------------------------------------------------
 
     @Override
     public Page<PostResponseCommand> getFeed(UUID viewerId, FeedFilter filter, Pageable pageable) {
         Viewer viewer = assembler.viewer(viewerId);
-        return page(postRepository.findFeed(feedQuery(viewer, filter), pageable), viewer);
+        // Keo tim nguoi: keo sap dien ra dung truoc (ngay, gio choi), khong theo luc dang.
+        Pageable order = filter.playerCallsOnly()
+                ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), CALL_ORDER)
+                : pageable;
+        return page(postRepository.findFeed(feedQuery(viewer, filter), order), viewer);
     }
 
     @Override
@@ -378,7 +387,8 @@ public class SocialPostServiceImpl implements SocialPostService {
                 filter.sport(),
                 filter.authorId(),
                 PostTags.normalize(filter.tag()),
-                filter.playerCallsOnly() ? new PostRepository.PlayerCallFilter(null, false) : null);
+                filter.playerCallsOnly() ? new PostRepository.PlayerCallFilter(null, true) : null,
+                filter.sports() == null ? Set.of() : filter.sports());
     }
 
     /** Chi bao nguoi moi duoc nhac va xem duoc bai; sua bai khong bao lai nguoi da nhac truoc do. */

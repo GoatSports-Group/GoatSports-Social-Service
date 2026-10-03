@@ -116,6 +116,27 @@ class PostRepositoryMongoTest {
         assertThat(roundTrip.getPlayerCall().startTime()).isEqualTo(java.time.LocalTime.of(19, 30));
     }
 
+    @Test
+    void openCallsSortBySoonestPlayTimeAndFilterByTheViewersSports() {
+        Post later = withCall(stranger, null, false, 3, 1);
+        Post sooner = withCall(stranger, null, false, 1, 9);
+        Post football = withCall(stranger, null, false, 2, 5);
+        football.setSport(iuh.fit.socialservice.domain.enums.PostSport.FOOTBALL);
+        posts.save(football);
+        for (Post post : List.of(later, sooner)) {
+            post.setSport(iuh.fit.socialservice.domain.enums.PostSport.BADMINTON);
+            posts.save(post);
+        }
+        Sort soonest = Sort.by(Sort.Order.asc("playerCall.playDate"), Sort.Order.asc("playerCall.startTime"),
+                Sort.Order.desc("publishedAt"));
+        PostRepository.FeedQuery badminton = new PostRepository.FeedQuery(viewer, Set.of(), Set.of(), Set.of(blocked),
+                false, null, null, null, new PostRepository.PlayerCallFilter(null, true),
+                Set.of(iuh.fit.socialservice.domain.enums.PostSport.BADMINTON));
+
+        assertThat(posts.findFeed(badminton, PageRequest.of(0, 10, soonest)).getContent())
+                .extracting(Post::getPostId).containsExactly(sooner.getPostId(), later.getPostId());
+    }
+
     private Post withCall(UUID author, UUID clubId, boolean filled, int daysFromNow, int minutesAgo) {
         Post post = publish(author, PostVisibility.PUBLIC, "", minutesAgo);
         post.setPlayerCall(new iuh.fit.socialservice.domain.entity.PlayerCall(

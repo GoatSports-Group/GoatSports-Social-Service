@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.presentation.controller;
 
+import java.util.Set;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
@@ -52,11 +53,12 @@ public class SocialPostController {
             @RequestParam(required = false) UUID authorId,
             @RequestParam(required = false) String tag,
             @RequestParam(defaultValue = "false") boolean playerCallsOnly,
+            @RequestParam(required = false) Set<PostSport> sports,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        SocialPostService.FeedFilter filter =
-                new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag, playerCallsOnly);
+        SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag,
+                playerCallsOnly, sports == null ? Set.of() : sports);
         Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), filter, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));

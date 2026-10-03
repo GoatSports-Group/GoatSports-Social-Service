@@ -1,5 +1,7 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import iuh.fit.socialservice.domain.enums.PostSport;
+import java.util.ArrayList;
 import iuh.fit.socialservice.application.dto.response.UserFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.dto.response.VenueFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
@@ -126,7 +128,7 @@ public class SocialFollowServiceImpl implements SocialFollowService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, int limit)
+    public List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit)
             throws ServiceException {
         if (viewerId == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
         Set<UUID> excluded = new HashSet<>(getFollowingUserIds(viewerId));
@@ -139,8 +141,17 @@ public class SocialFollowServiceImpl implements SocialFollowService {
             excluded.add(block.getBlockerId());
             excluded.add(block.getBlockedUserId());
         });
-        return postRepository.findActiveAuthors(
-                LocalDateTime.now().minusDays(30), excluded, Math.max(1, Math.min(limit, 10)));
+        int size = Math.max(1, Math.min(limit, 10));
+        LocalDateTime since = LocalDateTime.now().minusDays(30);
+        if (sports == null || sports.isEmpty()) return postRepository.findActiveAuthors(since, excluded, Set.of(), size);
+        // Nguoi choi cung mon dung truoc; thieu thi bu bang nguoi nang no nhat noi chung.
+        List<PostRepository.AuthorActivity> result = new ArrayList<>(
+                postRepository.findActiveAuthors(since, excluded, sports, size));
+        if (result.size() < size) {
+            result.forEach(item -> excluded.add(item.authorId()));
+            result.addAll(postRepository.findActiveAuthors(since, excluded, Set.of(), size - result.size()));
+        }
+        return result;
     }
 
     private void requireUsers(UUID targetUserId, UUID followerId) throws ServiceException {

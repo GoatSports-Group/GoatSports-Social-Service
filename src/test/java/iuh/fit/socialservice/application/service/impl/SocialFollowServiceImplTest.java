@@ -12,6 +12,7 @@ import iuh.fit.socialservice.domain.entity.Friendship;
 import iuh.fit.socialservice.domain.entity.UserBlock;
 import iuh.fit.socialservice.domain.enums.FriendshipStatus;
 import iuh.fit.socialservice.domain.enums.FollowTargetType;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -150,15 +153,30 @@ class SocialFollowServiceImplTest {
                 .thenReturn(List.of(Friendship.builder().requesterId(friend).addresseeId(follower).build()));
         when(userBlockRepository.findRelatedToUser(follower))
                 .thenReturn(List.of(UserBlock.builder().blockerId(blocker).blockedUserId(follower).build()));
-        when(postRepository.findActiveAuthors(any(), any(), anyInt())).thenReturn(List.of());
+        when(postRepository.findActiveAuthors(any(), any(), any(), anyInt())).thenReturn(List.of());
 
-        service.getFollowSuggestions(follower, 50);
+        service.getFollowSuggestions(follower, null, 50);
 
         ArgumentCaptor<Collection<UUID>> excluded = ArgumentCaptor.forClass(Collection.class);
         ArgumentCaptor<Integer> limit = ArgumentCaptor.forClass(Integer.class);
-        verify(postRepository).findActiveAuthors(any(), excluded.capture(), limit.capture());
+        verify(postRepository).findActiveAuthors(any(), excluded.capture(), eq(Set.of()), limit.capture());
         assertThat(excluded.getValue()).contains(follower, followed, friend, blocker);
         assertThat(limit.getValue()).isEqualTo(10);
+    }
+
+    @Test
+    void suggestionsPreferPeoplePlayingMySportsThenFillWithTheMostActive() throws Exception {
+        UUID badmintonPlayer = UUID.randomUUID();
+        UUID busyPoster = UUID.randomUUID();
+        Set<PostSport> mine = Set.of(PostSport.BADMINTON);
+        when(postRepository.findActiveAuthors(any(), any(), eq(mine), eq(3)))
+                .thenReturn(List.of(new PostRepository.AuthorActivity(badmintonPlayer, 4)));
+        when(postRepository.findActiveAuthors(any(), argThat(ids -> ids.contains(badmintonPlayer)), eq(Set.of()), eq(2)))
+                .thenReturn(List.of(new PostRepository.AuthorActivity(busyPoster, 9)));
+
+        assertThat(service.getFollowSuggestions(follower, mine, 3))
+                .extracting(PostRepository.AuthorActivity::authorId)
+                .containsExactly(badmintonPlayer, busyPoster);
     }
 
     @Test

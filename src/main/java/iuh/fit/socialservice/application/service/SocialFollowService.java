@@ -1,5 +1,7 @@
 package iuh.fit.socialservice.application.service;
 
+import iuh.fit.socialservice.domain.enums.PostSport;
+import java.util.Set;
 import iuh.fit.socialservice.application.dto.response.UserFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.dto.response.VenueFollowStatusResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
@@ -27,5 +29,7 @@ public interface SocialFollowService {
     List<UUID> getFollowingUserIds(UUID followerId);
 
     /** Tac gia dang dang bai cong khai nhieu, chua duoc theo doi, khong phai ban va khong bi chan. */
-    List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, int limit) throws ServiceException;
+    /** Nguoi nang no de theo doi; uu tien nguoi dang bai cac mon {@code sports} cua nguoi xem. */
+    List<PostRepository.AuthorActivity> getFollowSuggestions(UUID viewerId, Set<PostSport> sports, int limit)
+            throws ServiceException;
 }
