@@ -78,6 +78,7 @@ public class SocialPostConverter {
                 .sharedPost(toResponse(command.getSharedPost()))
                 .sharedPostUnavailable(command.isSharedPostUnavailable())
                 .playerCall(command.getPlayerCall())
+                .highlight(command.getHighlight())
                 .tags(command.getTags())
                 .mentions(command.getMentions())
                 .createdAt(command.getCreatedAt())

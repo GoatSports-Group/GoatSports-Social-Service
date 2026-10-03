@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.persistence.repository;
 
+import iuh.fit.socialservice.domain.enums.HighlightKind;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.domain.entity.Post;
@@ -67,6 +68,16 @@ public class PostRepositoryImpl implements PostRepository {
         return StreamSupport.stream(mongoPostRepository.findAllById(strings(postIds)).spliterator(), false)
                 .map(postEntityMapper::toDomain)
                 .toList();
+    }
+
+    @Override
+    public boolean existsHighlight(HighlightKind kind, UUID refId, UUID authorId, UUID clubId) {
+        Criteria criteria = Criteria.where("status").is(PostStatus.PUBLISHED)
+                .and("highlight.kind").is(kind)
+                .and("highlight.refId").is(refId.toString());
+        criteria = clubId != null ? criteria.and("highlight.clubId").is(clubId.toString())
+                : criteria.and("authorId").is(authorId.toString());
+        return mongoTemplate.exists(new Query(criteria), PostEntity.class);
     }
 
     @Override

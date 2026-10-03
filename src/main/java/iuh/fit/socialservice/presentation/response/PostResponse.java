@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.presentation.response;
 
+import iuh.fit.socialservice.domain.entity.PostHighlight;
 import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
@@ -36,6 +37,8 @@ public class PostResponse {
     private boolean sharedPostUnavailable;
     /** Bai "Tim nguoi choi"; null voi bai thuong. */
     private PlayerCall playerCall;
+    /** The "khoe" tran dau / giai dau; null voi bai thuong. */
+    private PostHighlight highlight;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;

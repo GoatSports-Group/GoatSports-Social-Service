@@ -34,6 +34,8 @@ public class SavePostCommand {
     private List<AttachmentItem> attachments;
     /** Bai "Tim nguoi choi"; null voi bai thuong. */
     private PlayerCall playerCall;
+    /** Bai "khoe" dang sua: the da du noi dung nen loi dan duoc de trong. Khong nhan tu client. */
+    private boolean highlight;
 
     public void validate() throws ServiceException {
         if (visibility == null) {
@@ -42,7 +44,7 @@ public class SavePostCommand {
         if (playerCall != null) validatePlayerCall();
         List<AttachmentItem> submittedAttachments = attachments == null ? List.of() : attachments;
         // Bai tim nguoi choi da co day du thong tin keo, loi nhan them la tuy chon.
-        if ((content == null || content.isBlank()) && submittedAttachments.isEmpty() && playerCall == null) {
+        if ((content == null || content.isBlank()) && submittedAttachments.isEmpty() && playerCall == null && !highlight) {
             throw new ServiceException("Bài viết phải có nội dung hoặc tệp đính kèm");
         }
         if (content != null && content.trim().length() > 5000) {

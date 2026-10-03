@@ -1,5 +1,8 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import iuh.fit.socialservice.domain.enums.HighlightKind;
+import iuh.fit.socialservice.domain.entity.PostHighlight;
+import iuh.fit.socialservice.application.dto.request.PublishHighlightCommand;
 import iuh.fit.socialservice.application.dto.request.SaveCommentCommand;
 import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
@@ -58,6 +61,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final SocialEventPublisher eventPublisher;
     private final ClubDirectory clubDirectory;
 
+    private static final int MAX_HIGHLIGHT_CONTENT = 2000;
     private static final org.springframework.data.domain.Sort CALL_ORDER = org.springframework.data.domain.Sort.by(
             org.springframework.data.domain.Sort.Order.asc("playerCall.playDate"),
             org.springframework.data.domain.Sort.Order.asc("playerCall.startTime"),
@@ -156,6 +160,73 @@ public class SocialPostServiceImpl implements SocialPostService {
     }
 
     @Override
+    public PostResponseCommand publishHighlight(PublishHighlightCommand command) throws ServiceException {
+        UUID authorId = requireActor(command.authorId());
+        PostHighlight highlight = validHighlight(command.highlight());
+        if (postRepository.existsHighlight(highlight.kind(), highlight.refId(), authorId, highlight.clubId())) {
+            throw new ServiceException(highlight.kind() == HighlightKind.MATCH
+                    ? "Bạn đã khoe trận này lên Cộng đồng rồi."
+                    : "Câu lạc bộ đã khoe giải này lên Cộng đồng rồi.");
+        }
+        String content = normalizeContent(command.content());
+        if (content != null && content.length() > MAX_HIGHLIGHT_CONTENT) {
+            throw new ServiceException("Nội dung không được vượt quá " + MAX_HIGHLIGHT_CONTENT + " ký tự");
+        }
+        Viewer author = assembler.viewer(authorId);
+        // Khong gan the chinh minh hay nguoi co quan he chan; bo trung, giu thu tu dich vu goc gui.
+        List<UUID> tagged = highlight.tagged().stream().filter(Objects::nonNull).distinct()
+                .filter(id -> !id.equals(authorId) && !author.blockedIds().contains(id))
+                .limit(PostHighlight.MAX_TAGGED).toList();
+        LocalDateTime now = LocalDateTime.now();
+        Post post = postRepository.save(Post.builder()
+                .authorId(authorId)
+                .content(content)
+                // Nguoi duoc gan the (vd doi thu chua ket ban) phai xem duoc bai.
+                .visibility(PostVisibility.PUBLIC)
+                .sport(command.sport())
+                .highlight(highlight.withTagged(tagged))
+                .status(PostStatus.PUBLISHED)
+                .createdAt(now)
+                .updatedAt(now)
+                .publishedAt(now)
+                .tags(PostTags.extract(content))
+                .build());
+        for (UUID userId : tagged) {
+            Map<String, String> payload = new LinkedHashMap<>();
+            payload.put("postId", post.getPostId().toString());
+            payload.put("snippet", snippet(highlight.title()));
+            payload.put("kind", highlight.kind().name());
+            eventPublisher.publish(SocialEventPublisher.POST_TAGGED, userId, authorId, post.getPostId(), payload,
+                    "tagged:" + post.getPostId() + ":" + userId);
+        }
+        return assembler.toResponse(post, author);
+    }
+
+    /** Ban chup do dich vu noi bo gui: chi kiem do dai, khong tin la da sach. */
+    private static PostHighlight validHighlight(PostHighlight value) throws ServiceException {
+        if (value == null || value.kind() == null || value.refId() == null) {
+            throw new ServiceException("Thiếu thông tin trận đấu hoặc giải đấu");
+        }
+        String title = value.title() == null ? "" : value.title().strip();
+        if (title.isEmpty() || title.length() > 120) throw new ServiceException("Tiêu đề phải có từ 1 đến 120 ký tự");
+        List<PostHighlight.Side> sides = value.sides() == null ? List.of() : value.sides();
+        List<PostHighlight.Stat> stats = value.stats() == null ? List.of() : value.stats();
+        if (sides.size() > 2 || stats.size() > 6) throw new ServiceException("Thẻ thành tích không hợp lệ");
+        if (tooLong(value.headline(), 200) || tooLong(value.subtitle(), 300) || tooLong(value.result(), 120)
+                || tooLong(value.clubName(), 150)
+                || sides.stream().anyMatch(side -> side == null || tooLong(side.name(), 150))
+                || stats.stream().anyMatch(stat -> stat == null || tooLong(stat.label(), 40) || tooLong(stat.value(), 40))) {
+            throw new ServiceException("Thẻ thành tích không hợp lệ");
+        }
+        return new PostHighlight(value.kind(), value.refId(), title, value.headline(), value.subtitle(), value.result(),
+                sides, stats, value.clubId(), value.clubName(), value.tagged() == null ? List.of() : value.tagged());
+    }
+
+    private static boolean tooLong(String value, int max) {
+        return value != null && value.length() > max;
+    }
+
+    @Override
     public PostResponseCommand updatePost(UUID postId, SavePostCommand command) throws ServiceException {
         UUID actorId = requireActor(command.getActorId());
         Post post = ownedPost(postId, actorId);
@@ -171,6 +242,7 @@ public class SocialPostServiceImpl implements SocialPostService {
             }
             post.setContent(caption(command.getContent()));
         } else {
+            command.setHighlight(post.getHighlight() != null);
             if (post.getPlayerCall() != null && command.getPlayerCall() == null) {
                 // Sua loi nhan cua keo ma client khong gui lai phan keo: giu nguyen keo.
                 command.setPlayerCall(post.getPlayerCall());
@@ -178,10 +250,14 @@ public class SocialPostServiceImpl implements SocialPostService {
             command.validate();
             post.setContent(normalizeContent(command.getContent()));
             post.setPlayerCall(playerCall(command.getPlayerCall(), actorId, post.getPlayerCall()));
-            post.setSport(post.getPlayerCall() != null ? post.getPlayerCall().sport() : command.getSport());
+            // The "khoe" giu nguyen mon cua tran / giai.
+            if (post.getHighlight() == null) {
+                post.setSport(post.getPlayerCall() != null ? post.getPlayerCall().sport() : command.getSport());
+            }
             post.setAttachments(toAttachments(command.getAttachments()));
         }
-        post.setVisibility(post.getPlayerCall() != null ? PostVisibility.PUBLIC : command.getVisibility());
+        post.setVisibility(post.getPlayerCall() != null || post.getHighlight() != null
+                ? PostVisibility.PUBLIC : command.getVisibility());
         post.setTags(PostTags.extract(post.getContent()));
         post.setMentions(PostMentions.sanitize(command.getMentions(), post.getContent(), actorId, actor.blockedIds()));
         post.setUpdatedAt(LocalDateTime.now());

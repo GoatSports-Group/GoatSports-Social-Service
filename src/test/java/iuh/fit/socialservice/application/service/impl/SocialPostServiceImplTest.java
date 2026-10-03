@@ -1,5 +1,9 @@
 package iuh.fit.socialservice.application.service.impl;
 
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import iuh.fit.socialservice.application.dto.request.PublishHighlightCommand;
+import iuh.fit.socialservice.domain.enums.HighlightKind;
+import iuh.fit.socialservice.domain.entity.PostHighlight;
 import iuh.fit.socialservice.application.dto.request.SaveCommentCommand;
 import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
@@ -114,6 +118,48 @@ class SocialPostServiceImplTest {
     }
 
     // ---- create / update -------------------------------------------------------------------------
+
+    @Test
+    void highlightIsPublicTagsTheRightPeopleAndNotifiesEachOnce() throws ServiceException {
+        UUID author = UUID.randomUUID();
+        UUID opponent = UUID.randomUUID();
+        UUID blocked = UUID.randomUUID();
+        UUID refId = UUID.randomUUID();
+        savesReturnTheirArgument();
+        when(userBlockRepository.findRelatedToUser(author))
+                .thenReturn(List.of(UserBlock.builder().blockerId(author).blockedUserId(blocked).build()));
+        PostHighlight highlight = new PostHighlight(HighlightKind.MATCH, refId, "  Trận cầu lông đã nhất tuần  ",
+                "Cầu lông · Đánh đơn", "Thứ Sáu, 02/10/2026", "Thắng 21–15",
+                List.of(new PostHighlight.Side("Minh Đạt", 21, true), new PostHighlight.Side("Thắng Đạt", 15, false)),
+                List.of(), null, null, List.of(opponent, author, blocked, opponent));
+
+        service.publishHighlight(new PublishHighlightCommand(author, PostSport.BADMINTON, " GG! ", highlight));
+
+        Post saved = captureSavedPost();
+        assertThat(saved.getVisibility()).isEqualTo(PostVisibility.PUBLIC);
+        assertThat(saved.getContent()).isEqualTo("GG!");
+        assertThat(saved.getHighlight().title()).isEqualTo("Trận cầu lông đã nhất tuần");
+        assertThat(saved.getHighlight().tagged()).containsExactly(opponent);
+        verify(eventPublisher).publish(eq(SocialEventPublisher.POST_TAGGED), eq(opponent), eq(author),
+                eq(saved.getPostId()), any(), eq("tagged:" + saved.getPostId() + ":" + opponent));
+        verifyNoMoreInteractions(eventPublisher);
+    }
+
+    @Test
+    void aClubShowsOffATournamentOnlyOnce() {
+        UUID clubId = UUID.randomUUID();
+        UUID tournamentId = UUID.randomUUID();
+        when(postRepository.existsHighlight(eq(HighlightKind.TOURNAMENT), eq(tournamentId), any(), eq(clubId)))
+                .thenReturn(true);
+        PostHighlight highlight = new PostHighlight(HighlightKind.TOURNAMENT, tournamentId, "Vô địch!", "Giải A", null,
+                "Vô địch", List.of(), List.of(), clubId, "Weekend Club", List.of());
+
+        assertThatThrownBy(() -> service.publishHighlight(
+                new PublishHighlightCommand(UUID.randomUUID(), PostSport.FOOTBALL, null, highlight)))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("đã khoe giải này");
+        verify(postRepository, never()).save(any());
+    }
+
 
     @Test
     void createPostNormalizesContentAndPersistsAttachments() throws ServiceException {

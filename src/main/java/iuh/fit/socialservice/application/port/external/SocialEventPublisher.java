@@ -15,6 +15,7 @@ public interface SocialEventPublisher {
     String USER_FOLLOWED = "social.user.followed.v1";
     String POST_MENTIONED = "social.post.mentioned.v1";
     String COMMENT_MENTIONED = "social.comment.mentioned.v1";
+    String POST_TAGGED = "social.post.tagged.v1";
     String FRIEND_REQUESTED = "social.friend.requested.v1";
     String FRIEND_ACCEPTED = "social.friend.accepted.v1";
 

@@ -45,6 +45,7 @@ public class PostEntity {
     private PostSport sport;
     private String sharedPostId;
     private PlayerCallDoc playerCall;
+    private PostHighlightDoc highlight;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

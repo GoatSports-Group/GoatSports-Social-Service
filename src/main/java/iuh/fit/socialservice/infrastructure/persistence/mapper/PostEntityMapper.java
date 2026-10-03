@@ -1,5 +1,7 @@
 package iuh.fit.socialservice.infrastructure.persistence.mapper;
 
+import iuh.fit.socialservice.infrastructure.persistence.entity.PostHighlightDoc;
+import iuh.fit.socialservice.domain.entity.PostHighlight;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
@@ -30,6 +32,7 @@ public class PostEntityMapper {
                 .sport(entity.getSport())
                 .sharedPostId(toUuid(entity.getSharedPostId()))
                 .playerCall(toDomain(entity.getPlayerCall()))
+                .highlight(toDomain(entity.getHighlight()))
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .publishedAt(entity.getPublishedAt())
@@ -51,6 +54,7 @@ public class PostEntityMapper {
                 .sport(domain.getSport())
                 .sharedPostId(toString(domain.getSharedPostId()))
                 .playerCall(toDocument(domain.getPlayerCall()))
+                .highlight(toDocument(domain.getHighlight()))
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .publishedAt(domain.getPublishedAt())
@@ -76,6 +80,35 @@ public class PostEntityMapper {
                 .endTime(call.endTime() == null ? null : call.endTime().toString())
                 .location(call.location()).slots(call.slots()).skillNote(call.skillNote())
                 .clubId(toString(call.clubId())).clubName(call.clubName()).filled(call.filled())
+                .build();
+    }
+
+    private PostHighlight toDomain(PostHighlightDoc doc) {
+        if (doc == null) return null;
+        return new PostHighlight(doc.getKind(), toUuid(doc.getRefId()), doc.getTitle(), doc.getHeadline(),
+                doc.getSubtitle(), doc.getResult(),
+                doc.getSides() == null ? List.of() : doc.getSides().stream()
+                        .map(side -> new PostHighlight.Side(side.getName(), side.getScore(), side.isWinner())).toList(),
+                doc.getStats() == null ? List.of() : doc.getStats().stream()
+                        .map(stat -> new PostHighlight.Stat(stat.getLabel(), stat.getValue())).toList(),
+                toUuid(doc.getClubId()), doc.getClubName(),
+                doc.getTagged() == null ? List.of() : doc.getTagged().stream().map(this::toUuid).toList());
+    }
+
+    private PostHighlightDoc toDocument(PostHighlight highlight) {
+        if (highlight == null) return null;
+        return PostHighlightDoc.builder()
+                .kind(highlight.kind()).refId(toString(highlight.refId())).title(highlight.title())
+                .headline(highlight.headline()).subtitle(highlight.subtitle()).result(highlight.result())
+                .sides(highlight.sides().stream()
+                        .map(side -> new PostHighlightDoc.SideDoc(side.name(), side.score(), side.winner()))
+                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                .stats(highlight.stats().stream()
+                        .map(stat -> new PostHighlightDoc.StatDoc(stat.label(), stat.value()))
+                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                .clubId(toString(highlight.clubId())).clubName(highlight.clubName())
+                .tagged(highlight.tagged().stream().map(UUID::toString)
+                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
                 .build();
     }
 

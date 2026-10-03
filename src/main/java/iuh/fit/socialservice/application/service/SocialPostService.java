@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.application.service;
 
+import iuh.fit.socialservice.application.dto.request.PublishHighlightCommand;
 import java.util.Set;
 import iuh.fit.socialservice.application.dto.request.SaveCommentCommand;
 import iuh.fit.socialservice.application.dto.request.SavePostCommand;
@@ -67,6 +68,12 @@ public interface SocialPostService {
      * {@code sports}: cac mon cua nguoi xem ("Mon cua ban"), loc them ben canh {@code sport}.
      * {@code playerCallsOnly}: chi keo con mo (chua du nguoi, chua qua ngay choi), keo sap dien ra truoc.
      */
+    /**
+     * Dang bai "khoe" do dich vu noi bo da xac nhan (nguoi choi trong tran / chu, quan tri CLB). Luon cong khai,
+     * gan the va bao cho tung nguoi duoc gan the.
+     */
+    PostResponseCommand publishHighlight(PublishHighlightCommand command) throws ServiceException;
+
     record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
                       Set<PostSport> sports) {
         public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly) {

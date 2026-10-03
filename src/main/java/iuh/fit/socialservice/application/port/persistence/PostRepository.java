@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.application.port.persistence;
 
+import iuh.fit.socialservice.domain.enums.HighlightKind;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,11 @@ public interface PostRepository {
     List<Post> findAllById(Collection<UUID> postIds);
 
     Page<Post> findFeed(FeedQuery query, Pageable pageable);
+
+    /**
+     * Da co bai "khoe" con hien thi cho {@code refId}: giai thi tinh theo CLB ({@code clubId}), tran thi theo nguoi dang.
+     */
+    boolean existsHighlight(HighlightKind kind, UUID refId, UUID authorId, UUID clubId);
 
     /**
      * Bai nguoi xem da luu, moi luu truoc. Loc quyen xem va chan truoc khi phan trang, nen moi

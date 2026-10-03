@@ -28,6 +28,8 @@ public class Post {
     private PostSport sport;
     private UUID sharedPostId;
     private PlayerCall playerCall;
+    /** The "khoe" tran dau / giai dau; null voi bai thuong. */
+    private PostHighlight highlight;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;
