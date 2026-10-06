@@ -25,6 +25,11 @@ public class SocialWebSocketPublisherImpl implements SocialWebSocketPublisher {
     }
 
     @Override
+    public void publishMessageToUser(UUID userId, Message message) {
+        messagingTemplate.convertAndSend("/topic/users/" + userId + "/messages", (Object) message);
+    }
+
+    @Override
     public void publishTypingIndicator(UUID conversationId, UUID userId, boolean typing) {
         String destination = "/topic/conversations/" + conversationId + "/typing";
         Map<String, Object> payload = Map.of(

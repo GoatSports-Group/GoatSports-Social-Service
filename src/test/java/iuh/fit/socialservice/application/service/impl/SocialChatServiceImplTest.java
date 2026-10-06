@@ -337,4 +337,74 @@ class SocialChatServiceImplTest {
         org.mockito.Mockito.verifyNoInteractions(storageKeyPromoter);
         org.mockito.Mockito.verify(messageRepository, org.mockito.Mockito.never()).save(any());
     }
+
+    @Test
+    @DisplayName("xóa đoạn chat chỉ ẩn lịch sử phía người xóa, người kia vẫn đọc đủ")
+    void clearingHidesHistoryOnlyForTheOneWhoCleared() throws ServiceException {
+        UUID me = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        Conversation conversation = directWith(me, other);
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(messageRepository.findByConversationId(any(), any(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        service.clearConversation(conversation.getConversationId(), me);
+        service.getConversationMessages(conversation.getConversationId(), me, page);
+        service.getConversationMessages(conversation.getConversationId(), other, page);
+
+        LocalDateTime cleared = conversation.getMembers().get(0).getClearedAt();
+        assertThat(cleared).isNotNull();
+        assertThat(conversation.getMembers().get(1).getClearedAt()).isNull();
+        org.mockito.Mockito.verify(messageRepository).markConversationAsRead(conversation.getConversationId(), me);
+        org.mockito.Mockito.verify(messageRepository).findByConversationId(conversation.getConversationId(), cleared, page);
+        org.mockito.Mockito.verify(messageRepository).findByConversationId(conversation.getConversationId(), null, page);
+    }
+
+    @Test
+    @DisplayName("tin mới đẩy vào kênh riêng của người nhận, trừ người gửi và người đã tắt thông báo")
+    void newMessagesReachEachRecipientsInboxExceptMutedOnes() throws ServiceException {
+        UUID sender = UUID.randomUUID();
+        UUID listening = UUID.randomUUID();
+        UUID muted = UUID.randomUUID();
+        Conversation conversation = Conversation.builder()
+                .conversationId(UUID.randomUUID())
+                .type(ConversationType.GROUP)
+                .members(new java.util.ArrayList<>(List.of(
+                        ConversationMember.builder().userId(sender).role(MemberRole.OWNER).build(),
+                        ConversationMember.builder().userId(listening).role(MemberRole.MEMBER).build(),
+                        ConversationMember.builder().userId(muted).role(MemberRole.MEMBER).build())))
+                .build();
+        when(conversationRepository.findById(conversation.getConversationId())).thenReturn(Optional.of(conversation));
+        service.setMuted(conversation.getConversationId(), muted, true);
+        when(messageRepository.findBySenderIdAndClientMessageId(any(), anyString())).thenReturn(Optional.empty());
+        when(messageRepository.save(any())).thenAnswer(call -> call.getArgument(0));
+
+        service.sendMessage(iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+                .conversationId(conversation.getConversationId()).senderId(sender).clientMessageId("m-1")
+                .content("Tối nay đá không?").build());
+
+        org.mockito.Mockito.verify(webSocketPublisher).publishMessageToUser(eq(listening), any());
+        org.mockito.Mockito.verify(webSocketPublisher, org.mockito.Mockito.never()).publishMessageToUser(eq(muted), any());
+        org.mockito.Mockito.verify(webSocketPublisher, org.mockito.Mockito.never()).publishMessageToUser(eq(sender), any());
+    }
+
+    @Test
+    @DisplayName("chat hai người cho biết ai đã chặn ai, và trạng thái tắt thông báo của người xem")
+    void pairConversationTellsTheViewerWhoBlockedWhom() throws ServiceException {
+        UUID me = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        Conversation conversation = directWith(me, other);
+        when(socialBlockService.hasBlocked(me, other)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
+
+        ConversationResponseCommand mine = service.getConversation(conversation.getConversationId(), me);
+        assertThat(mine.getBlockState()).isEqualTo("BLOCKED_BY_ME");
+        assertThat(mine.getMuted()).isFalse();
+
+        when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
+        org.mockito.Mockito.lenient().when(socialBlockService.hasBlocked(me, other)).thenReturn(true);
+        when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
+        ConversationResponseCommand theirs = service.getConversation(conversation.getConversationId(), other);
+        assertThat(theirs.getBlockState()).isEqualTo("BLOCKED_BY_THEM");
+    }
 }

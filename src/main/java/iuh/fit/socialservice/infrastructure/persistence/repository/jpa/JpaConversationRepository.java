@@ -16,6 +16,9 @@ import java.util.UUID;
 
 public interface JpaConversationRepository extends JpaRepository<ConversationEntity, UUID> {
 
+    /** Doan chat da xoa phia minh chi hien lai khi co tin moi sau moc xoa. */
+    String VISIBLE_AFTER_CLEAR = "AND (m.clearedAt IS NULL OR (c.lastMessageAt IS NOT NULL AND c.lastMessageAt > m.clearedAt))";
+
     @Override
     @EntityGraph(attributePaths = "members")
     Optional<ConversationEntity> findById(UUID conversationId);
@@ -23,11 +26,13 @@ public interface JpaConversationRepository extends JpaRepository<ConversationEnt
     @Query(
             value = "SELECT c.conversationId FROM ConversationEntity c " +
                     "WHERE EXISTS (SELECT m.memberId FROM ConversationMemberEntity m " +
-                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL) " +
+                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL " +
+                    VISIBLE_AFTER_CLEAR + ") " +
                     "ORDER BY COALESCE(c.lastMessageAt, c.updatedAt, c.createdAt) DESC",
             countQuery = "SELECT COUNT(c) FROM ConversationEntity c " +
                     "WHERE EXISTS (SELECT m.memberId FROM ConversationMemberEntity m " +
-                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL)"
+                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL " +
+                    VISIBLE_AFTER_CLEAR + ")"
     )
     Page<UUID> findUserConversationIds(@Param("userId") UUID userId, Pageable pageable);
 

@@ -82,6 +82,8 @@ public class SocialChatConverter {
                 .lastMessageAt(cmd.getLastMessageAt())
                 .lastSenderId(cmd.getLastSenderId())
                 .unreadCount(cmd.getUnreadCount())
+                .muted(cmd.getMuted())
+                .blockState(cmd.getBlockState())
                 .members(members)
                 .createdAt(cmd.getCreatedAt())
                 .updatedAt(cmd.getUpdatedAt())

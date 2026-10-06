@@ -70,6 +70,11 @@ public class SocialBlockServiceImpl implements SocialBlockService {
                userBlockRepository.existsByBlockerIdAndBlockedUserId(u2, u1);
     }
 
+    @Override
+    public boolean hasBlocked(UUID blocker, UUID blocked) {
+        return userBlockRepository.existsByBlockerIdAndBlockedUserId(blocker, blocked);
+    }
+
     private UserBlockResponseCommand mapToResponse(UserBlock b) {
         return UserBlockResponseCommand.builder()
                 .blockId(b.getBlockId())

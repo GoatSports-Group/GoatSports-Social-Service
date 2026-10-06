@@ -52,9 +52,12 @@ public class MessageRepositoryImpl implements MessageRepository {
     }
 
     @Override
-    public Page<Message> findByConversationId(UUID conversationId, Pageable pageable) {
-        return mongoMessageRepository.findByConversationIdOrderBySentAtDesc(conversationId.toString(), pageable)
-                .map(messageEntityMapper::toDomain);
+    public Page<Message> findByConversationId(UUID conversationId, LocalDateTime after, Pageable pageable) {
+        Page<MessageEntity> page = after == null
+                ? mongoMessageRepository.findByConversationIdOrderBySentAtDesc(conversationId.toString(), pageable)
+                : mongoMessageRepository.findByConversationIdAndSentAtAfterOrderBySentAtDesc(
+                        conversationId.toString(), after, pageable);
+        return page.map(messageEntityMapper::toDomain);
     }
 
     @Override

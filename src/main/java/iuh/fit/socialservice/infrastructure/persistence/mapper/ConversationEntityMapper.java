@@ -68,6 +68,8 @@ public class ConversationEntityMapper {
         member.setJoinedAt(entity.getJoinedAt());
         member.setLastReadMessageId(entity.getLastReadMessageId());
         member.setLeftAt(entity.getLeftAt());
+        member.setClearedAt(entity.getClearedAt());
+        member.setMuted(entity.isMuted());
         member.setCreatedAt(entity.getCreatedAt());
         member.setCreatedBy(entity.getCreatedBy());
         member.setUpdatedAt(entity.getUpdatedAt());
@@ -83,6 +85,8 @@ public class ConversationEntityMapper {
         entity.setJoinedAt(member.getJoinedAt());
         entity.setLastReadMessageId(member.getLastReadMessageId());
         entity.setLeftAt(member.getLeftAt());
+        entity.setClearedAt(member.getClearedAt());
+        entity.setMuted(member.isMuted());
         entity.setCreatedAt(member.getCreatedAt());
         entity.setCreatedBy(member.getCreatedBy());
         entity.setUpdatedAt(member.getUpdatedAt());

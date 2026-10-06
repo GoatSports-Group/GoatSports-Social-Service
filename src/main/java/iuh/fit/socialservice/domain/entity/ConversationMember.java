@@ -20,4 +20,6 @@ public class ConversationMember extends BaseEntity {
     private LocalDateTime joinedAt;
     private UUID lastReadMessageId;
     private LocalDateTime leftAt;
+    private LocalDateTime clearedAt;
+    private boolean muted;
 }

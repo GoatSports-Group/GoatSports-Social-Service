@@ -11,7 +11,8 @@ public interface MessageRepository {
     Message save(Message message);
     Optional<Message> findById(UUID messageId);
     Optional<Message> findBySenderIdAndClientMessageId(UUID senderId, String clientMessageId);
-    Page<Message> findByConversationId(UUID conversationId, Pageable pageable);
+    /** {@code after} (co the null): chi tin gui sau moc nay, dung cho doan chat da xoa phia nguoi xem. */
+    Page<Message> findByConversationId(UUID conversationId, java.time.LocalDateTime after, Pageable pageable);
     Optional<Message> findLatestByConversationId(UUID conversationId);
     void markConversationAsRead(UUID conversationId, UUID userId);
     long countUnreadMessages(UUID conversationId, UUID userId);

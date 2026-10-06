@@ -24,6 +24,10 @@ public class ConversationResponse {
     private LocalDateTime lastMessageAt;
     private UUID lastSenderId;
     private Long unreadCount;
+    /** Rieng nguoi xem: da tat thong bao doan chat nay. */
+    private Boolean muted;
+    /** Rieng nguoi xem, chat hai nguoi: BLOCKED_BY_ME / BLOCKED_BY_THEM, null neu khong chan. */
+    private String blockState;
     private List<MemberItemResponse> members;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

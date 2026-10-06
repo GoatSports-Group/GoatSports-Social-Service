@@ -113,6 +113,21 @@ public class SocialChatController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{conversationId}")
+    @ApiMessage("Đã xóa đoạn chat ở phía bạn")
+    public ResponseEntity<Void> clearConversation(@PathVariable UUID conversationId) throws ServiceException {
+        chatService.clearConversation(conversationId, caller(null));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{conversationId}/mute")
+    @ApiMessage("Đã cập nhật thông báo của đoạn chat")
+    public ResponseEntity<Void> setMuted(@PathVariable UUID conversationId, @RequestParam boolean muted)
+            throws ServiceException {
+        chatService.setMuted(conversationId, caller(null), muted);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Nguoi dang goi; neu client con gui kem mot id thi id do phai la chinh ho. */
     private UUID caller(UUID claimed) throws ServiceException {
         UUID me = currentUserProvider.getCurrentUserId()

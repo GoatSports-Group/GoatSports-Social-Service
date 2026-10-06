@@ -27,4 +27,9 @@ public interface SocialChatService {
     MessageResponseCommand sendMessage(SendMessageCommand command) throws ServiceException;
 
     void markAsRead(UUID conversationId, UUID userId) throws ServiceException;
+
+    /** Xoa doan chat phia nguoi nay: an lich su va an khoi danh sach den khi co tin moi; nguoi khac khong doi. */
+    void clearConversation(UUID conversationId, UUID userId) throws ServiceException;
+
+    void setMuted(UUID conversationId, UUID userId, boolean muted) throws ServiceException;
 }

@@ -25,6 +25,7 @@ import java.util.UUID;
 public class ConversationSubscriptionInterceptor implements ChannelInterceptor {
 
     private static final String CONVERSATION_PREFIX = "/topic/conversations/";
+    private static final String USER_PREFIX = "/topic/users/";
 
     private final ConversationRepository conversationRepository;
 
@@ -37,6 +38,15 @@ public class ConversationSubscriptionInterceptor implements ChannelInterceptor {
         }
 
         String destination = accessor.getDestination();
+        if (destination != null && destination.startsWith(USER_PREFIX)) {
+            UUID owner = idAfter(destination, USER_PREFIX);
+            UUID userId = userIdOf(accessor.getUser());
+            if (owner == null || !owner.equals(userId)) {
+                log.warn("Từ chối subscribe {} cho người dùng {}", destination, userId);
+                throw new IllegalArgumentException("Bạn không thể nghe kênh của người khác.");
+            }
+            return message;
+        }
         if (destination == null || !destination.startsWith(CONVERSATION_PREFIX)) {
             return message;
         }
@@ -52,7 +62,11 @@ public class ConversationSubscriptionInterceptor implements ChannelInterceptor {
 
     /** Vừa khớp `/topic/conversations/{id}` vừa khớp `/topic/conversations/{id}/typing`. */
     private UUID conversationIdOf(String destination) {
-        String remainder = destination.substring(CONVERSATION_PREFIX.length());
+        return idAfter(destination, CONVERSATION_PREFIX);
+    }
+
+    private UUID idAfter(String destination, String prefix) {
+        String remainder = destination.substring(prefix.length());
         int slash = remainder.indexOf('/');
         String raw = slash < 0 ? remainder : remainder.substring(0, slash);
         try {

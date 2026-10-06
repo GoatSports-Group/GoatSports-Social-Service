@@ -14,6 +14,9 @@ public interface MongoMessageRepository extends MongoRepository<MessageEntity, S
 
     Page<MessageEntity> findByConversationIdOrderBySentAtDesc(String conversationId, Pageable pageable);
 
+    Page<MessageEntity> findByConversationIdAndSentAtAfterOrderBySentAtDesc(
+            String conversationId, java.time.LocalDateTime after, Pageable pageable);
+
     List<MessageEntity> findByConversationIdOrderBySentAtAsc(String conversationId);
 
     Optional<MessageEntity> findFirstByConversationIdOrderBySentAtDesc(String conversationId);

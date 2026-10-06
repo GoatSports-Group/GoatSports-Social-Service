@@ -12,4 +12,6 @@ public interface SocialBlockService {
     void unblockUser(UUID blockId, UUID actorUserId) throws ServiceException;
     List<UserBlockResponseCommand> getBlockedUsers(UUID userId);
     boolean isBlocked(UUID u1, UUID u2);
+    /** Mot chieu: {@code blocker} da chan {@code blocked}. */
+    boolean hasBlocked(UUID blocker, UUID blocked);
 }

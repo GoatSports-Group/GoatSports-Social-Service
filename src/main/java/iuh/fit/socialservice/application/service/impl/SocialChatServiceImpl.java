@@ -51,11 +51,8 @@ public class SocialChatServiceImpl implements SocialChatService {
     @Override
     @Transactional(readOnly = true)
     public Page<ConversationResponseCommand> getUserConversations(UUID userId, Pageable pageable) {
-        return conversationRepository.findUserConversations(userId, pageable).map(conversation -> {
-            ConversationResponseCommand response = mapToConversationResponse(conversation);
-            response.setUnreadCount(messageRepository.countUnreadMessages(conversation.getConversationId(), userId));
-            return response;
-        });
+        return conversationRepository.findUserConversations(userId, pageable)
+                .map(conversation -> viewerResponse(conversation, userId));
     }
 
     @Override
@@ -63,9 +60,7 @@ public class SocialChatServiceImpl implements SocialChatService {
     public ConversationResponseCommand getConversation(UUID conversationId, UUID userId) throws ServiceException {
         Conversation conversation = requireConversation(conversationId);
         requireActiveMember(conversation, userId);
-        ConversationResponseCommand response = mapToConversationResponse(conversation);
-        response.setUnreadCount(messageRepository.countUnreadMessages(conversationId, userId));
-        return response;
+        return viewerResponse(conversation, userId);
     }
 
     @Override
@@ -82,7 +77,7 @@ public class SocialChatServiceImpl implements SocialChatService {
         }
 
         Optional<Conversation> existing = conversationRepository.findDirectBetween(firstUserId, secondUserId);
-        if (existing.isPresent()) return mapToConversationResponse(existing.get());
+        if (existing.isPresent()) return viewerResponse(existing.get(), firstUserId);
 
         LocalDateTime now = LocalDateTime.now();
         List<ConversationMember> members = List.of(
@@ -230,8 +225,9 @@ public class SocialChatServiceImpl implements SocialChatService {
             Pageable pageable
     ) throws ServiceException {
         Conversation conversation = requireConversation(conversationId);
-        requireActiveMember(conversation, userId);
-        return messageRepository.findByConversationId(conversationId, pageable).map(ChatResponseMapper::toMessageResponse);
+        ConversationMember member = requireActiveMember(conversation, userId);
+        return messageRepository.findByConversationId(conversationId, member.getClearedAt(), pageable)
+                .map(ChatResponseMapper::toMessageResponse);
     }
 
     @Override
@@ -248,8 +244,10 @@ public class SocialChatServiceImpl implements SocialChatService {
                 command.getSenderId());
         if (attachmentProblem != null) throw new ServiceException(attachmentProblem);
 
-        // Chat 1-1: một trong hai người đã chặn người kia thì không gửi được nữa (chặn có hiệu lực hai chiều).
-        if (conversation.getType() == ConversationType.DIRECT) {
+        // Chat hai người (riêng hoặc kèo 1-1): một trong hai đã chặn người kia thì không gửi được nữa (hai chiều).
+        long activeMembers = conversation.getMembers().stream().filter(member -> member.getLeftAt() == null).count();
+        if (conversation.getType() == ConversationType.DIRECT
+                || (conversation.getType() == ConversationType.MATCH && activeMembers == 2)) {
             for (ConversationMember member : conversation.getMembers()) {
                 if (member.getLeftAt() == null && !member.getUserId().equals(command.getSenderId()) &&
                         socialBlockService.isBlocked(command.getSenderId(), member.getUserId())) {
@@ -310,6 +308,11 @@ public class SocialChatServiceImpl implements SocialChatService {
         conversation.setUpdatedAt(now);
         conversationRepository.save(conversation);
         webSocketPublisher.publishMessageToConversation(command.getConversationId(), savedMessage);
+        // Kenh rieng tung nguoi nhan cho bong bong chat; nguoi da tat thong bao thi khong day.
+        conversation.getMembers().stream()
+                .filter(member -> member.getLeftAt() == null && !member.isMuted()
+                        && !member.getUserId().equals(command.getSenderId()))
+                .forEach(member -> webSocketPublisher.publishMessageToUser(member.getUserId(), savedMessage));
         return ChatResponseMapper.toMessageResponse(savedMessage);
     }
 
@@ -322,6 +325,49 @@ public class SocialChatServiceImpl implements SocialChatService {
         member.setLastReadMessageId(conversation.getLastMessageId());
         member.setUpdatedAt(LocalDateTime.now());
         conversationRepository.save(conversation);
+    }
+
+    @Override
+    @Transactional
+    public void clearConversation(UUID conversationId, UUID userId) throws ServiceException {
+        Conversation conversation = requireConversation(conversationId);
+        ConversationMember member = requireActiveMember(conversation, userId);
+        messageRepository.markConversationAsRead(conversationId, userId);
+        LocalDateTime now = LocalDateTime.now();
+        member.setClearedAt(now);
+        member.setLastReadMessageId(conversation.getLastMessageId());
+        member.setUpdatedAt(now);
+        conversationRepository.save(conversation);
+    }
+
+    @Override
+    @Transactional
+    public void setMuted(UUID conversationId, UUID userId, boolean muted) throws ServiceException {
+        Conversation conversation = requireConversation(conversationId);
+        ConversationMember member = requireActiveMember(conversation, userId);
+        member.setMuted(muted);
+        member.setUpdatedAt(LocalDateTime.now());
+        conversationRepository.save(conversation);
+    }
+
+    /** Phan rieng cua nguoi xem: so tin chua doc, tat thong bao, quan he chan (chat hai nguoi). */
+    private ConversationResponseCommand viewerResponse(Conversation conversation, UUID viewerId) {
+        ConversationResponseCommand response = mapToConversationResponse(conversation);
+        response.setUnreadCount(messageRepository.countUnreadMessages(conversation.getConversationId(), viewerId));
+        List<ConversationMember> active = conversation.getMembers().stream()
+                .filter(member -> member.getLeftAt() == null)
+                .toList();
+        active.stream().filter(member -> viewerId.equals(member.getUserId())).findFirst()
+                .ifPresent(member -> response.setMuted(member.isMuted()));
+        if (active.size() == 2 && (conversation.getType() == ConversationType.DIRECT
+                || conversation.getType() == ConversationType.MATCH)) {
+            active.stream().map(ConversationMember::getUserId).filter(id -> !id.equals(viewerId)).findFirst()
+                    .ifPresent(other -> {
+                        if (socialBlockService.hasBlocked(viewerId, other)) response.setBlockState("BLOCKED_BY_ME");
+                        else if (socialBlockService.hasBlocked(other, viewerId)) response.setBlockState("BLOCKED_BY_THEM");
+                    });
+        }
+        return response;
     }
 
     /**

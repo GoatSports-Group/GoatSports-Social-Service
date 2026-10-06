@@ -66,4 +66,10 @@ public class ConversationMemberEntity extends BaseEntity {
 
     @Column(name = "left_at")
     private LocalDateTime leftAt;
+
+    @Column(name = "cleared_at")
+    private LocalDateTime clearedAt;
+
+    @Column(name = "muted", nullable = false)
+    private boolean muted;
 }
