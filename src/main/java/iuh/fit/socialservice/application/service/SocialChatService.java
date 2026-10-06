@@ -26,6 +26,19 @@ public interface SocialChatService {
 
     MessageResponseCommand sendMessage(SendMessageCommand command) throws ServiceException;
 
+    /**
+     * Cuon hai chieu theo con tro thoi gian (moi nhat truoc). {@code after} co gia tri thi lay tin moi hon,
+     * khong thi lay tin cu hon {@code before} (null = tu moi nhat).
+     */
+    java.util.List<MessageResponseCommand> getMessagesByCursor(UUID conversationId, UUID userId,
+                                                               java.time.LocalDateTime before,
+                                                               java.time.LocalDateTime after, int size)
+            throws ServiceException;
+
+    /** Mo doan chat tai tin chua doc dau tien: vai tin truoc no lam ngu canh, roi tu no tro di. */
+    iuh.fit.socialservice.application.dto.response.MessageWindowCommand getUnreadWindow(
+            UUID conversationId, UUID userId, int size) throws ServiceException;
+
     void markAsRead(UUID conversationId, UUID userId) throws ServiceException;
 
     /** Xoa doan chat phia nguoi nay: an lich su va an khoi danh sach den khi co tin moi; nguoi khac khong doi. */

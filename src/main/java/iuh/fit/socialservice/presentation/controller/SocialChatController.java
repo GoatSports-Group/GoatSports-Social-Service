@@ -91,6 +91,32 @@ public class SocialChatController {
         return ResponseEntity.ok(PageResponse.from(result.map(chatConverter::toResponse)));
     }
 
+    @GetMapping("/{conversationId}/messages/cursor")
+    @ApiMessage("Lấy tin nhắn thành công")
+    public ResponseEntity<java.util.List<MessageResponse>> getMessagesByCursor(
+            @PathVariable UUID conversationId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime before,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime after,
+            @RequestParam(defaultValue = "50") int size
+    ) throws ServiceException {
+        return ResponseEntity.ok(chatService.getMessagesByCursor(conversationId, caller(null), before, after, size)
+                .stream().map(chatConverter::toResponse).toList());
+    }
+
+    @GetMapping("/{conversationId}/messages/unread-window")
+    @ApiMessage("Lấy tin nhắn thành công")
+    public ResponseEntity<iuh.fit.socialservice.presentation.response.MessageWindowResponse> getUnreadWindow(
+            @PathVariable UUID conversationId,
+            @RequestParam(defaultValue = "50") int size
+    ) throws ServiceException {
+        var window = chatService.getUnreadWindow(conversationId, caller(null), size);
+        return ResponseEntity.ok(new iuh.fit.socialservice.presentation.response.MessageWindowResponse(
+                window.messages().stream().map(chatConverter::toResponse).toList(),
+                window.firstUnreadMessageId(), window.hasOlder(), window.hasNewer()));
+    }
+
     @PostMapping("/{conversationId}/messages")
     @ApiMessage("Gửi tin nhắn thành công")
     public ResponseEntity<MessageResponse> sendMessage(

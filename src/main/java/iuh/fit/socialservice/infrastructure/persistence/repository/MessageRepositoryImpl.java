@@ -66,6 +66,45 @@ public class MessageRepositoryImpl implements MessageRepository {
                 .map(messageEntityMapper::toDomain);
     }
 
+    // ponytail: con tro chi theo sentAt; hai tin cung mot mili giay o dung ranh gioi trang co the bi bo qua,
+    // them (sentAt, messageId) neu gap that.
+    @Override
+    public List<Message> findOlder(UUID conversationId, LocalDateTime before, LocalDateTime floor, int limit) {
+        Criteria sent = Criteria.where("sentAt").lt(before);
+        if (floor != null) sent = sent.gt(floor);
+        Query query = new Query(Criteria.where("conversationId").is(conversationId.toString()).andOperator(sent))
+                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "sentAt"))
+                .limit(limit);
+        return mongoTemplate.find(query, MessageEntity.class).stream().map(messageEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Message> findNewer(UUID conversationId, LocalDateTime after, boolean inclusive, LocalDateTime floor,
+                                   int limit) {
+        LocalDateTime from = floor != null && !floor.isBefore(after) ? floor : after;
+        boolean keepFrom = inclusive && from == after;
+        Criteria sent = keepFrom ? Criteria.where("sentAt").gte(from) : Criteria.where("sentAt").gt(from);
+        Query query = new Query(Criteria.where("conversationId").is(conversationId.toString()).andOperator(sent))
+                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "sentAt"))
+                .limit(limit);
+        return mongoTemplate.find(query, MessageEntity.class).stream().map(messageEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public Optional<Message> findFirstUnread(UUID conversationId, UUID userId, LocalDateTime floor) {
+        Criteria readReceipt = Criteria.where("receipts").elemMatch(
+                Criteria.where("userId").is(userId.toString()).and("status").is(MessageStatus.READ));
+        List<Criteria> parts = new ArrayList<>(List.of(
+                Criteria.where("conversationId").is(conversationId.toString()),
+                Criteria.where("senderId").ne(userId.toString()),
+                new Criteria().norOperator(readReceipt)));
+        if (floor != null) parts.add(Criteria.where("sentAt").gt(floor));
+        Query query = new Query(new Criteria().andOperator(parts.toArray(Criteria[]::new)))
+                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "sentAt"))
+                .limit(1);
+        return Optional.ofNullable(mongoTemplate.findOne(query, MessageEntity.class)).map(messageEntityMapper::toDomain);
+    }
+
     @Override
     public void markConversationAsRead(UUID conversationId, UUID userId) {
         String userIdValue = userId.toString();

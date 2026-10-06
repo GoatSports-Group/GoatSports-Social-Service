@@ -327,6 +327,52 @@ public class SocialChatServiceImpl implements SocialChatService {
         conversationRepository.save(conversation);
     }
 
+    /** Tin ngu canh hien truoc vach "Tin nhan chua doc". */
+    private static final int UNREAD_CONTEXT = 10;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MessageResponseCommand> getMessagesByCursor(UUID conversationId, UUID userId, LocalDateTime before,
+                                                            LocalDateTime after, int size) throws ServiceException {
+        Conversation conversation = requireConversation(conversationId);
+        LocalDateTime floor = requireActiveMember(conversation, userId).getClearedAt();
+        int limit = Math.max(1, Math.min(size, 100));
+        List<Message> messages = after != null
+                ? newestFirst(messageRepository.findNewer(conversationId, after, false, floor, limit))
+                : messageRepository.findOlder(conversationId, before == null ? LocalDateTime.now().plusDays(1) : before,
+                        floor, limit);
+        return messages.stream().map(ChatResponseMapper::toMessageResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public iuh.fit.socialservice.application.dto.response.MessageWindowCommand getUnreadWindow(
+            UUID conversationId, UUID userId, int size) throws ServiceException {
+        Conversation conversation = requireConversation(conversationId);
+        LocalDateTime floor = requireActiveMember(conversation, userId).getClearedAt();
+        int limit = Math.max(1, Math.min(size, 100));
+        Optional<Message> firstUnread = messageRepository.findFirstUnread(conversationId, userId, floor);
+        if (firstUnread.isEmpty()) {
+            List<Message> latest = messageRepository.findOlder(conversationId, LocalDateTime.now().plusDays(1), floor, limit);
+            return new iuh.fit.socialservice.application.dto.response.MessageWindowCommand(
+                    latest.stream().map(ChatResponseMapper::toMessageResponse).toList(), null, latest.size() == limit, false);
+        }
+        LocalDateTime anchor = firstUnread.get().getSentAt();
+        List<Message> newer = messageRepository.findNewer(conversationId, anchor, true, floor, limit);
+        List<Message> older = messageRepository.findOlder(conversationId, anchor, floor, UNREAD_CONTEXT);
+        List<Message> window = new ArrayList<>(newestFirst(newer));
+        window.addAll(older);
+        return new iuh.fit.socialservice.application.dto.response.MessageWindowCommand(
+                window.stream().map(ChatResponseMapper::toMessageResponse).toList(),
+                firstUnread.get().getMessageId(), older.size() == UNREAD_CONTEXT, newer.size() == limit);
+    }
+
+    private static List<Message> newestFirst(List<Message> oldestFirst) {
+        List<Message> reversed = new ArrayList<>(oldestFirst);
+        java.util.Collections.reverse(reversed);
+        return reversed;
+    }
+
     @Override
     @Transactional
     public void clearConversation(UUID conversationId, UUID userId) throws ServiceException {

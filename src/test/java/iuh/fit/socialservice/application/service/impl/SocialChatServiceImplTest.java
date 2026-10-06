@@ -407,4 +407,29 @@ class SocialChatServiceImplTest {
         ConversationResponseCommand theirs = service.getConversation(conversation.getConversationId(), other);
         assertThat(theirs.getBlockState()).isEqualTo("BLOCKED_BY_THEM");
     }
+
+    @Test
+    @DisplayName("mở đoạn chat tại tin chưa đọc đầu tiên: vài tin cũ làm ngữ cảnh, rồi từ tin đó trở đi")
+    void unreadWindowStartsAtTheFirstUnreadMessage() throws ServiceException {
+        UUID me = UUID.randomUUID();
+        Conversation conversation = directWith(me, UUID.randomUUID());
+        LocalDateTime anchor = LocalDateTime.now().minusMinutes(5);
+        iuh.fit.socialservice.domain.entity.Message first = iuh.fit.socialservice.domain.entity.Message.builder()
+                .messageId(UUID.randomUUID()).content("chưa đọc").sentAt(anchor).build();
+        iuh.fit.socialservice.domain.entity.Message later = iuh.fit.socialservice.domain.entity.Message.builder()
+                .messageId(UUID.randomUUID()).content("mới hơn").sentAt(anchor.plusMinutes(1)).build();
+        iuh.fit.socialservice.domain.entity.Message earlier = iuh.fit.socialservice.domain.entity.Message.builder()
+                .messageId(UUID.randomUUID()).content("đã đọc").sentAt(anchor.minusMinutes(1)).build();
+        when(messageRepository.findFirstUnread(conversation.getConversationId(), me, null)).thenReturn(Optional.of(first));
+        when(messageRepository.findNewer(conversation.getConversationId(), anchor, true, null, 2))
+                .thenReturn(List.of(first, later));
+        when(messageRepository.findOlder(conversation.getConversationId(), anchor, null, 10)).thenReturn(List.of(earlier));
+
+        var window = service.getUnreadWindow(conversation.getConversationId(), me, 2);
+
+        assertThat(window.messages()).extracting(item -> item.getContent()).containsExactly("mới hơn", "chưa đọc", "đã đọc");
+        assertThat(window.firstUnreadMessageId()).isEqualTo(first.getMessageId());
+        assertThat(window.hasNewer()).isTrue();
+        assertThat(window.hasOlder()).isFalse();
+    }
 }
