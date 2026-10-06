@@ -152,9 +152,12 @@ public class SocialFollowServiceImpl implements SocialFollowService {
         Set<UUID> friends = new HashSet<>();
         friendshipRepository.findUserFriends(viewerId, FriendshipStatus.ACCEPTED).forEach(friendship ->
                 friends.add(viewerId.equals(friendship.getRequesterId()) ? friendship.getAddresseeId() : friendship.getRequesterId()));
-        Set<UUID> excluded = new HashSet<>(getFollowingUserIds(viewerId));
+        Set<UUID> excluded = new HashSet<>(friends);
         excluded.add(viewerId);
-        excluded.addAll(friends);
+        friendshipRepository.findUserFriends(viewerId, FriendshipStatus.PENDING).forEach(friendship -> {
+            excluded.add(friendship.getRequesterId());
+            excluded.add(friendship.getAddresseeId());
+        });
         userBlockRepository.findRelatedToUser(viewerId).forEach(block -> {
             excluded.add(block.getBlockerId());
             excluded.add(block.getBlockedUserId());

@@ -148,28 +148,33 @@ class SocialFollowServiceImplTest {
     }
 
     @Test
-    void suggestionsNeverIncludeSelfFollowedFriendsOrBlockedPeopleWhateverTheSignal() throws Exception {
+    void suggestionsNeverIncludeSelfFriendsPendingRequestsOrBlockedPeopleWhateverTheSignal() throws Exception {
         UUID followed = UUID.randomUUID();
         UUID friend = UUID.randomUUID();
+        UUID requested = UUID.randomUUID();
         UUID blocker = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();
-        when(followRepository.findByFollowerIdAndTargetType(follower, FollowTargetType.USER))
+        lenient().when(followRepository.findByFollowerIdAndTargetType(follower, FollowTargetType.USER))
                 .thenReturn(List.of(Follow.builder().targetId(followed).build()));
         when(friendshipRepository.findUserFriends(follower, FriendshipStatus.ACCEPTED))
                 .thenReturn(List.of(Friendship.builder().requesterId(friend).addresseeId(follower).build()));
+        when(friendshipRepository.findUserFriends(follower, FriendshipStatus.PENDING))
+                .thenReturn(List.of(Friendship.builder().requesterId(follower).addresseeId(requested).build()));
         when(userBlockRepository.findRelatedToUser(follower))
                 .thenReturn(List.of(UserBlock.builder().blockerId(blocker).blockedUserId(follower).build()));
         // Ai cung chung nhom chat CLB voi minh, ke ca nhung nguoi phai loai.
         when(conversationRepository.findCoMembers(eq(follower), any())).thenReturn(List.of(
                 new ConversationRepository.CoMember(followed, ConversationType.CLUB, "Weekend Club"),
                 new ConversationRepository.CoMember(friend, ConversationType.CLUB, "Weekend Club"),
+                new ConversationRepository.CoMember(requested, ConversationType.CLUB, "Weekend Club"),
                 new ConversationRepository.CoMember(blocker, ConversationType.CLUB, "Weekend Club"),
                 new ConversationRepository.CoMember(stranger, ConversationType.CLUB, "Weekend Club")));
         when(postRepository.findActiveAuthors(any(), any(), any(), anyInt()))
                 .thenReturn(List.of(new PostRepository.AuthorActivity(follower, 3)));
 
+        // Nguoi da theo doi (cu) van duoc goi y ket ban.
         assertThat(service.getFollowSuggestions(follower, null, 50, 0))
-                .extracting(SocialFollowService.FollowSuggestion::authorId).containsExactly(stranger);
+                .extracting(SocialFollowService.FollowSuggestion::authorId).containsExactlyInAnyOrder(followed, stranger);
     }
 
     @Test

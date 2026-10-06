@@ -254,6 +254,8 @@ public class PostRepositoryImpl implements PostRepository {
         if (feed.playerCalls() != null) {
             String call = prefix + "playerCall";
             criteria.add(Criteria.where(call).ne(null));
+            // Danh sach keo de tham gia: keo cua chinh minh nam o "Keo cua toi" (loc theo authorId), khong o day.
+            if (feed.authorId() == null && viewerId != null) criteria.add(Criteria.where(author).ne(viewerId.toString()));
             if (Boolean.TRUE.equals(feed.playerCalls().club())) criteria.add(Criteria.where(call + ".clubId").ne(null));
             if (Boolean.FALSE.equals(feed.playerCalls().club())) criteria.add(Criteria.where(call + ".clubId").is(null));
             if (feed.playerCalls().openOnly()) {

@@ -108,8 +108,13 @@ class PostRepositoryMongoTest {
         withCall(stranger, null, true, 1, 3);
         withCall(stranger, null, false, -1, 2);
         withCall(blocked, null, false, 1, 1);
+        Post mine = withCall(viewer, null, false, 1, 1);
 
         assertThat(callIds(false, true)).containsExactly(personal.getPostId());
+        PostRepository.FeedQuery myCalls = new PostRepository.FeedQuery(viewer, Set.of(), Set.of(), Set.of(blocked),
+                false, null, viewer, null, new PostRepository.PlayerCallFilter(null, true));
+        assertThat(posts.findFeed(myCalls, PageRequest.of(0, 10)).getContent())
+                .extracting(Post::getPostId).containsExactly(mine.getPostId());
         assertThat(callIds(true, true)).containsExactly(club.getPostId());
         assertThat(callIds(null, false)).hasSize(4);
         Post roundTrip = posts.findById(personal.getPostId()).orElseThrow();
