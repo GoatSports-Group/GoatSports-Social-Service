@@ -17,13 +17,18 @@ import java.util.UUID;
 public class GatewayHandshakeHandler extends DefaultHandshakeHandler {
 
     static final String USER_ID_ATTRIBUTE = "goatsports.userId";
+    static final String ROLES_ATTRIBUTE = "goatsports.roles";
 
     @Override
     protected Principal determineUser(@NonNull ServerHttpRequest request,
                                       @NonNull WebSocketHandler wsHandler,
                                       @NonNull Map<String, Object> attributes) {
         Object userId = attributes.get(USER_ID_ATTRIBUTE);
-        return userId instanceof UUID id ? new WebSocketUserPrincipal(id) : null;
+        if (!(userId instanceof UUID id)) return null;
+        @SuppressWarnings("unchecked")
+        java.util.Set<String> roles = attributes.get(ROLES_ATTRIBUTE) instanceof java.util.Set<?> set
+                ? (java.util.Set<String>) set : java.util.Set.of();
+        return new WebSocketUserPrincipal(id, roles);
     }
 
     /** Đọc `X-User-Id` từ request nâng cấp và cất vào thuộc tính phiên. */
@@ -44,11 +49,22 @@ public class GatewayHandshakeHandler extends DefaultHandshakeHandler {
             }
             try {
                 attributes.put(USER_ID_ATTRIBUTE, UUID.fromString(raw));
+                attributes.put(ROLES_ATTRIBUTE, roles(servletRequest.getServletRequest().getHeader("X-User-Roles")));
                 return true;
             } catch (IllegalArgumentException exception) {
                 log.warn("Từ chối bắt tay WebSocket: X-User-Id không hợp lệ");
                 return false;
             }
+        }
+
+        /** "ROLE_ADMIN, VENUE_OWNER" -> {ADMIN, VENUE_OWNER}. Gateway da xoa X-User-* do client tu gui. */
+        static java.util.Set<String> roles(String raw) {
+            if (raw == null || raw.isBlank()) return java.util.Set.of();
+            return java.util.Arrays.stream(raw.split(","))
+                    .map(String::trim)
+                    .filter(role -> !role.isBlank())
+                    .map(role -> role.startsWith("ROLE_") ? role.substring(5) : role)
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
         }
 
         @Override

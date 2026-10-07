@@ -19,6 +19,11 @@ public class ConversationResponseCommand {
     private String name;
     private String avatarUrl;
     private UUID contextId;
+    /** Chat BUSINESS: san / giai / ve nguoi choi dang hoi. */
+    private iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType;
+    private UUID subjectId;
+    /** Hop thu SUPPORT: tin cuoi do chu san gui, doi quan tri chua tra loi. */
+    private Boolean awaitingReply;
     private UUID lastMessageId;
     private String lastMessageContent;
     private LocalDateTime lastMessageAt;

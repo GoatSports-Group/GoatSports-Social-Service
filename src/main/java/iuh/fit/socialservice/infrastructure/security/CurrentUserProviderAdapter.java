@@ -15,4 +15,9 @@ public class CurrentUserProviderAdapter implements CurrentUserProvider {
     public Optional<String> getCurrentUserId() {
         return securityContextHelper.getCurrentUserId();
     }
+
+    @Override
+    public boolean hasRole(String role) {
+        return securityContextHelper.hasAuthority("ROLE_" + role);
+    }
 }

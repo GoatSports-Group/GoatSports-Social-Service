@@ -61,6 +61,13 @@ public class ConversationEntity extends BaseEntity {
     @Column(name = "context_id", columnDefinition = "UUID")
     private UUID contextId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subject_type", length = 32)
+    private iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType;
+
+    @Column(name = "subject_id", columnDefinition = "UUID")
+    private UUID subjectId;
+
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("joinedAt ASC")
     @Builder.Default

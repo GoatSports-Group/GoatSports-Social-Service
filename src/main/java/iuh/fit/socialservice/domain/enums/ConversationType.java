@@ -5,5 +5,7 @@ public enum ConversationType {
     GROUP,
     CLUB,
     MATCH,
-    TOURNAMENT
+    TOURNAMENT,
+    BUSINESS,
+    SUPPORT
 }

@@ -43,9 +43,10 @@ public class SocialChatController {
     @ApiMessage("Lấy danh sách cuộc trò chuyện thành công")
     public ResponseEntity<PageResponse<ConversationResponse>> getUserConversations(
             @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) java.util.List<iuh.fit.socialservice.domain.enums.ConversationType> types,
             Pageable pageable
     ) throws ServiceException {
-        Page<ConversationResponseCommand> result = chatService.getUserConversations(caller(userId), pageable);
+        Page<ConversationResponseCommand> result = chatService.getUserConversations(caller(userId), types, pageable);
         return ResponseEntity.ok(PageResponse.from(result.map(chatConverter::toResponse)));
     }
 
@@ -67,6 +68,45 @@ public class SocialChatController {
     ) throws ServiceException {
         ConversationResponseCommand result = chatService.getOrCreateDirectConversation(caller(user1Id), user2Id);
         return ResponseEntity.ok(chatConverter.toResponse(result));
+    }
+
+    @PostMapping("/business")
+    @ApiMessage("Mở cuộc trò chuyện với chủ sân thành công")
+    public ResponseEntity<ConversationResponse> getOrCreateBusinessConversation(
+            @Valid @RequestBody iuh.fit.socialservice.presentation.request.BusinessConversationRequest request
+    ) throws ServiceException {
+        ConversationResponseCommand result = chatService.getOrCreateBusinessConversation(
+                caller(null), request.getOwnerId(), request.getSubjectType(), request.getSubjectId());
+        return ResponseEntity.ok(chatConverter.toResponse(result));
+    }
+
+    /**
+     * Chu san: mo hop thu ho tro cua minh (khong truyen ownerId). Admin: mo / chu dong nhan cho chu san
+     * {@code ownerId} va tham gia doan chat.
+     */
+    @PostMapping("/support")
+    @ApiMessage("Mở hộp thư hỗ trợ thành công")
+    public ResponseEntity<ConversationResponse> getOrCreateSupportConversation(
+            @RequestParam(required = false) UUID ownerId
+    ) throws ServiceException {
+        UUID me = caller(null);
+        ConversationResponseCommand result;
+        if (ownerId != null && !ownerId.equals(me)) {
+            requireRole("ADMIN", "Chỉ quản trị viên được mở hộp thư hỗ trợ của chủ sân.");
+            result = chatService.getOrCreateSupportConversation(ownerId, me);
+        } else {
+            requireRole("VENUE_OWNER", "Chỉ chủ sân mới liên hệ được đội quản trị.");
+            result = chatService.getOrCreateSupportConversation(me, null);
+        }
+        return ResponseEntity.ok(chatConverter.toResponse(result));
+    }
+
+    @GetMapping("/support/inbox")
+    @ApiMessage("Lấy hộp thư hỗ trợ thành công")
+    public ResponseEntity<PageResponse<ConversationResponse>> getSupportInbox(Pageable pageable) throws ServiceException {
+        UUID me = caller(null);
+        requireRole("ADMIN", "Chỉ quản trị viên được xem hộp thư hỗ trợ.");
+        return ResponseEntity.ok(PageResponse.from(chatService.getSupportInbox(me, pageable).map(chatConverter::toResponse)));
     }
 
     @PostMapping("/group")
@@ -152,6 +192,10 @@ public class SocialChatController {
             throws ServiceException {
         chatService.setMuted(conversationId, caller(null), muted);
         return ResponseEntity.noContent().build();
+    }
+
+    private void requireRole(String role, String message) throws ServiceException {
+        if (!currentUserProvider.hasRole(role)) throw new iuh.fit.socialservice.application.exception.ForbiddenException(message);
     }
 
     /** Nguoi dang goi; neu client con gui kem mot id thi id do phai la chinh ho. */

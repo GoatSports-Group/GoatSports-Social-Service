@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.infrastructure.exception;
 
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
+import iuh.fit.socialservice.application.exception.ForbiddenException;
 import iuh.fit.socialservice.application.dto.response.base.BaseResponse;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,6 +30,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnauthenticatedException.class)
     ResponseEntity<BaseResponse<Object>> handleUnauthenticated(UnauthenticatedException exception) {
         return errorResponse(HttpStatus.UNAUTHORIZED, exception.getMessage(), "Chưa đăng nhập");
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    ResponseEntity<BaseResponse<Object>> handleForbidden(ForbiddenException exception) {
+        return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), "Không có quyền");
     }
 
     @ExceptionHandler(ServiceException.class)

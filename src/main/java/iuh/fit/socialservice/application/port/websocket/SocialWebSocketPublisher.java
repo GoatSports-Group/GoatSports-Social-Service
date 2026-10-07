@@ -10,6 +10,8 @@ public interface SocialWebSocketPublisher {
 
     void publishMessageToUser(UUID userId, Message message);
 
+    void publishSupportMessage(Message message);
+
     void publishTypingIndicator(UUID conversationId, UUID userId, boolean typing);
 
     void publishPresenceStatus(PresenceStatusCommand status);

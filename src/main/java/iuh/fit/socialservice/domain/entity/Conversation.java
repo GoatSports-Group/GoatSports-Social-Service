@@ -21,5 +21,8 @@ public class Conversation extends BaseEntity {
     private LocalDateTime lastMessageAt;
     private UUID lastMessageId;
     private UUID contextId;
+    /** Chat BUSINESS: san / giai / ve gan nhat ma nguoi choi hoi (khong dung contextId vi contextId tim phong CLB, giai). */
+    private iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType;
+    private UUID subjectId;
     private List<ConversationMember> members;
 }

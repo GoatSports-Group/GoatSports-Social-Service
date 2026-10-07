@@ -26,6 +26,7 @@ public class ConversationSubscriptionInterceptor implements ChannelInterceptor {
 
     private static final String CONVERSATION_PREFIX = "/topic/conversations/";
     private static final String USER_PREFIX = "/topic/users/";
+    private static final String SUPPORT_PREFIX = "/topic/support";
 
     private final ConversationRepository conversationRepository;
 
@@ -38,6 +39,13 @@ public class ConversationSubscriptionInterceptor implements ChannelInterceptor {
         }
 
         String destination = accessor.getDestination();
+        if (destination != null && destination.startsWith(SUPPORT_PREFIX)) {
+            if (!(accessor.getUser() instanceof WebSocketUserPrincipal user) || !user.hasRole("ADMIN")) {
+                log.warn("Từ chối subscribe {} cho người dùng không phải quản trị viên", destination);
+                throw new IllegalArgumentException("Chỉ quản trị viên được nghe hộp thư hỗ trợ.");
+            }
+            return message;
+        }
         if (destination != null && destination.startsWith(USER_PREFIX)) {
             UUID owner = idAfter(destination, USER_PREFIX);
             UUID userId = userIdOf(accessor.getUser());

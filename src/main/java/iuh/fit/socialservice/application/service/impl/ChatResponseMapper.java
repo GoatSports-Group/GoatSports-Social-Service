@@ -32,6 +32,8 @@ final class ChatResponseMapper {
                 .name(conversation.getName())
                 .avatarUrl(conversation.getAvatarUrl())
                 .contextId(conversation.getContextId())
+                .subjectType(conversation.getSubjectType())
+                .subjectId(conversation.getSubjectId())
                 .lastMessageId(conversation.getLastMessageId())
                 .lastMessageContent(lastMessage == null ? null : ChatAttachmentPolicy.preview(lastMessage.getContent(),
                         lastMessage.getAttachments() == null ? 0 : lastMessage.getAttachments().size()))

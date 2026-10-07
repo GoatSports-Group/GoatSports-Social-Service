@@ -432,4 +432,120 @@ class SocialChatServiceImplTest {
         assertThat(window.hasNewer()).isTrue();
         assertThat(window.hasOlder()).isFalse();
     }
+
+    @Test
+    @DisplayName("chat công việc: lần đầu tạo BUSINESS (chủ sân là OWNER), lần sau dùng lại và đổi sân / giải đang hỏi")
+    void businessConversationIsReusedPerPairAndFollowsTheLatestSubject() throws ServiceException {
+        UUID player = UUID.randomUUID();
+        UUID owner = UUID.randomUUID();
+        UUID venue = UUID.randomUUID();
+        UUID tournament = UUID.randomUUID();
+        when(conversationRepository.findPairOfType(ConversationType.BUSINESS, player, owner)).thenReturn(Optional.empty());
+
+        ConversationResponseCommand created = service.getOrCreateBusinessConversation(
+                player, owner, iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE, venue);
+
+        assertThat(created.getType()).isEqualTo(ConversationType.BUSINESS);
+        assertThat(created.getSubjectId()).isEqualTo(venue);
+        assertThat(created.getMembers()).extracting(ConversationResponseCommand.MemberItemResponse::getRole)
+                .containsExactly(MemberRole.OWNER, MemberRole.MEMBER);
+
+        Conversation existing = Conversation.builder()
+                .conversationId(UUID.randomUUID())
+                .type(ConversationType.BUSINESS)
+                .subjectType(iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE)
+                .subjectId(venue)
+                .members(new java.util.ArrayList<>(List.of(
+                        ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build(),
+                        ConversationMember.builder().userId(player).role(MemberRole.MEMBER).build())))
+                .build();
+        when(conversationRepository.findPairOfType(ConversationType.BUSINESS, player, owner)).thenReturn(Optional.of(existing));
+
+        ConversationResponseCommand reused = service.getOrCreateBusinessConversation(
+                player, owner, iuh.fit.socialservice.domain.enums.ConversationSubjectType.TOURNAMENT, tournament);
+
+        assertThat(reused.getConversationId()).isEqualTo(existing.getConversationId());
+        assertThat(reused.getSubjectType()).isEqualTo(iuh.fit.socialservice.domain.enums.ConversationSubjectType.TOURNAMENT);
+        assertThat(reused.getSubjectId()).isEqualTo(tournament);
+    }
+
+    @Test
+    @DisplayName("chat công việc với người đã chặn mình hoặc với chính mình bị từ chối")
+    void businessConversationRespectsBlocksAndSelf() {
+        UUID player = UUID.randomUUID();
+        UUID owner = UUID.randomUUID();
+        when(socialBlockService.isBlocked(player, owner)).thenReturn(true);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getOrCreateBusinessConversation(
+                player, owner, iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE, UUID.randomUUID()))
+                .isInstanceOf(ServiceException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getOrCreateBusinessConversation(
+                player, player, iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE, UUID.randomUUID()))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    @DisplayName("hộp thư hỗ trợ: chủ sân tạo một lần; admin mở thì được thêm vào với vai trò ADMIN, không thêm trùng")
+    void supportConversationIsOnePerOwnerAndAdminsJoinOnOpen() throws ServiceException {
+        UUID owner = UUID.randomUUID();
+        UUID admin = UUID.randomUUID();
+        when(conversationRepository.findSupportOf(owner)).thenReturn(Optional.empty());
+
+        ConversationResponseCommand created = service.getOrCreateSupportConversation(owner, null);
+
+        assertThat(created.getType()).isEqualTo(ConversationType.SUPPORT);
+        assertThat(created.getName()).isEqualTo("Hỗ trợ GOAT Sports");
+        assertThat(created.getMembers()).extracting(ConversationResponseCommand.MemberItemResponse::getUserId)
+                .containsExactly(owner);
+
+        Conversation existing = Conversation.builder()
+                .conversationId(UUID.randomUUID())
+                .type(ConversationType.SUPPORT)
+                .members(new java.util.ArrayList<>(List.of(
+                        ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build())))
+                .build();
+        when(conversationRepository.findSupportOf(owner)).thenReturn(Optional.of(existing));
+
+        ConversationResponseCommand opened = service.getOrCreateSupportConversation(owner, admin);
+        assertThat(opened.getMembers()).extracting(ConversationResponseCommand.MemberItemResponse::getRole)
+                .containsExactly(MemberRole.OWNER, MemberRole.ADMIN);
+
+        existing.setMembers(new java.util.ArrayList<>(List.of(
+                ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build(),
+                ConversationMember.builder().userId(admin).role(MemberRole.ADMIN).build())));
+        org.mockito.Mockito.clearInvocations(conversationRepository);
+        service.getOrCreateSupportConversation(owner, admin);
+        org.mockito.Mockito.verify(conversationRepository, org.mockito.Mockito.never()).save(any(Conversation.class));
+    }
+
+    @Test
+    @DisplayName("hộp thư hỗ trợ: tin cuối của chủ sân = chờ trả lời; tin mới được đẩy cho cả đội quản trị")
+    void supportInboxFlagsAwaitingReplyAndBroadcastsNewMessages() throws ServiceException {
+        UUID owner = UUID.randomUUID();
+        UUID admin = UUID.randomUUID();
+        UUID lastMessageId = UUID.randomUUID();
+        Conversation support = Conversation.builder()
+                .conversationId(UUID.randomUUID())
+                .type(ConversationType.SUPPORT)
+                .lastMessageId(lastMessageId)
+                .members(new java.util.ArrayList<>(List.of(
+                        ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build())))
+                .build();
+        when(messageRepository.findById(lastMessageId)).thenReturn(Optional.of(
+                iuh.fit.socialservice.domain.entity.Message.builder().messageId(lastMessageId).senderId(owner)
+                        .content("Cần hỗ trợ").build()));
+        when(conversationRepository.findByType(eq(ConversationType.SUPPORT), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(support)));
+
+        var inbox = service.getSupportInbox(admin, org.springframework.data.domain.Pageable.unpaged());
+        assertThat(inbox.getContent()).singleElement()
+                .satisfies(item -> assertThat(item.getAwaitingReply()).isTrue());
+
+        when(conversationRepository.findById(support.getConversationId())).thenReturn(Optional.of(support));
+        when(messageRepository.findBySenderIdAndClientMessageId(eq(owner), anyString())).thenReturn(Optional.empty());
+        when(messageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        service.sendMessage(iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+                .conversationId(support.getConversationId()).senderId(owner).content("Còn ai không?").build());
+        org.mockito.Mockito.verify(webSocketPublisher).publishSupportMessage(any());
+    }
 }

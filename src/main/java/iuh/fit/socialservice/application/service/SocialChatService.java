@@ -14,6 +14,24 @@ import java.util.UUID;
 public interface SocialChatService {
     Page<ConversationResponseCommand> getUserConversations(UUID userId, Pageable pageable);
 
+    /** {@code types} rong / null = moi loai (Tin nhan ben client); admin dung BUSINESS + SUPPORT. */
+    Page<ConversationResponseCommand> getUserConversations(
+            UUID userId, java.util.Collection<iuh.fit.socialservice.domain.enums.ConversationType> types, Pageable pageable);
+
+    /** Chat cong viec nguoi choi <-> chu san; dung lai doan chat cu cua cap nay va cap nhat doi tuong dang hoi. */
+    ConversationResponseCommand getOrCreateBusinessConversation(
+            UUID playerId, UUID ownerId, iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType, UUID subjectId)
+            throws ServiceException;
+
+    /**
+     * Doan chat SUPPORT cua chu san {@code ownerId}. {@code adminId} khac null khi admin mo / chu dong nhan:
+     * admin duoc them vao doan chat (vai tro ADMIN) neu chua o trong.
+     */
+    ConversationResponseCommand getOrCreateSupportConversation(UUID ownerId, UUID adminId) throws ServiceException;
+
+    /** Hop thu chung cua doi quan tri: moi doan chat SUPPORT, moi nhat truoc. */
+    Page<ConversationResponseCommand> getSupportInbox(UUID adminId, Pageable pageable);
+
     ConversationResponseCommand getConversation(UUID conversationId, UUID userId) throws ServiceException;
 
     ConversationResponseCommand getOrCreateDirectConversation(UUID user1Id, UUID user2Id) throws ServiceException;

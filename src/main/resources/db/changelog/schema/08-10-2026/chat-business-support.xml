@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <!-- Chat cong viec (BUSINESS): san / giai / ve ma nguoi choi dang hoi chu san. Hop thu SUPPORT loc theo loai. -->
+    <changeSet id="20261008-social-chat-business-support" author="minhdat">
+        <addColumn tableName="conversations">
+            <column name="subject_type" type="VARCHAR(32)"/>
+            <column name="subject_id" type="UUID"/>
+        </addColumn>
+        <createIndex tableName="conversations" indexName="idx_conversations_type">
+            <column name="type"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

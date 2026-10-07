@@ -47,7 +47,40 @@ public class ConversationRepositoryImpl implements ConversationRepository {
     @Override
     @Transactional(readOnly = true)
     public Page<Conversation> findUserConversations(UUID userId, Pageable pageable) {
-        Page<UUID> conversationIds = jpaConversationRepository.findUserConversationIds(userId, pageable);
+        return loadPage(jpaConversationRepository.findUserConversationIds(userId, pageable), pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Conversation> findUserConversations(UUID userId, Collection<ConversationType> types, Pageable pageable) {
+        if (types == null || types.isEmpty()) return findUserConversations(userId, pageable);
+        return loadPage(jpaConversationRepository.findUserConversationIdsOfTypes(userId, types, pageable), pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Conversation> findByType(ConversationType type, Pageable pageable) {
+        return loadPage(jpaConversationRepository.findConversationIdsByType(type, pageable), pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Conversation> findPairOfType(ConversationType type, UUID firstUserId, UUID secondUserId) {
+        return jpaConversationRepository.findDirectBetween(type, firstUserId, secondUserId)
+                .map(conversationEntityMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Conversation> findSupportOf(UUID ownerId) {
+        return jpaConversationRepository.findOwnedByType(ConversationType.SUPPORT, ownerId,
+                        iuh.fit.socialservice.domain.enums.MemberRole.OWNER).stream()
+                .findFirst()
+                .map(conversationEntityMapper::toDomain);
+    }
+
+    /** Trang id da sap xep -> nap ca doan chat kem thanh vien, giu nguyen thu tu. */
+    private Page<Conversation> loadPage(Page<UUID> conversationIds, Pageable pageable) {
         if (conversationIds.isEmpty()) {
             return new PageImpl<>(List.of(), pageable, conversationIds.getTotalElements());
         }

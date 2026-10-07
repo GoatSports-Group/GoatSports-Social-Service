@@ -19,6 +19,7 @@ import iuh.fit.socialservice.domain.entity.MessageAttachment;
 import iuh.fit.socialservice.domain.service.ChatAttachmentPolicy;
 import iuh.fit.socialservice.domain.entity.MessageReceipt;
 import iuh.fit.socialservice.domain.enums.ConversationType;
+import iuh.fit.socialservice.domain.enums.ConversationSubjectType;
 import iuh.fit.socialservice.domain.enums.MemberRole;
 import iuh.fit.socialservice.domain.enums.MessageStatus;
 import iuh.fit.socialservice.domain.enums.MessageType;
@@ -54,6 +55,104 @@ public class SocialChatServiceImpl implements SocialChatService {
         return conversationRepository.findUserConversations(userId, pageable)
                 .map(conversation -> viewerResponse(conversation, userId));
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ConversationResponseCommand> getUserConversations(UUID userId, java.util.Collection<ConversationType> types,
+                                                                  Pageable pageable) {
+        return conversationRepository.findUserConversations(userId, types, pageable)
+                .map(conversation -> viewerResponse(conversation, userId));
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponseCommand getOrCreateBusinessConversation(
+            UUID playerId, UUID ownerId, ConversationSubjectType subjectType, UUID subjectId) throws ServiceException {
+        if (playerId.equals(ownerId)) {
+            throw new ServiceException("Bạn không thể nhắn tin cho chính mình.");
+        }
+        if (subjectType == null || subjectId == null) {
+            throw new ServiceException("Thiếu sân, giải đấu hoặc vé đặt sân cần hỏi.");
+        }
+        if (socialBlockService.isBlocked(playerId, ownerId)) {
+            throw new ServiceException("Không thể tạo cuộc trò chuyện do quan hệ người dùng đã bị chặn.");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        // ponytail: mot doan chat cho moi cap nguoi, khong phan biet chieu (A hoi B hay B hoi A); tach theo chieu neu
+        // co chu san vua la khach cua chu san kia ma can hai hop thu rieng.
+        Optional<Conversation> existing = conversationRepository.findPairOfType(ConversationType.BUSINESS, playerId, ownerId);
+        if (existing.isPresent()) {
+            Conversation conversation = existing.get();
+            if (subjectType != conversation.getSubjectType() || !subjectId.equals(conversation.getSubjectId())) {
+                conversation.setSubjectType(subjectType);
+                conversation.setSubjectId(subjectId);
+                conversation.setUpdatedAt(now);
+                conversation = conversationRepository.save(conversation);
+            }
+            return viewerResponse(conversation, playerId);
+        }
+        Conversation conversation = Conversation.builder()
+                .type(ConversationType.BUSINESS)
+                .subjectType(subjectType)
+                .subjectId(subjectId)
+                .members(List.of(newMember(ownerId, MemberRole.OWNER, now), newMember(playerId, MemberRole.MEMBER, now)))
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        return viewerResponse(conversationRepository.save(conversation), playerId);
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponseCommand getOrCreateSupportConversation(UUID ownerId, UUID adminId) throws ServiceException {
+        if (ownerId == null) throw new ServiceException("Thiếu chủ sân.");
+        if (ownerId.equals(adminId)) throw new ServiceException("Bạn không thể nhắn tin cho chính mình.");
+        LocalDateTime now = LocalDateTime.now();
+        Conversation conversation = conversationRepository.findSupportOf(ownerId).orElse(null);
+        if (conversation == null) {
+            List<ConversationMember> members = new ArrayList<>();
+            members.add(newMember(ownerId, MemberRole.OWNER, now));
+            if (adminId != null) members.add(newMember(adminId, MemberRole.ADMIN, now));
+            conversation = conversationRepository.save(Conversation.builder()
+                    .type(ConversationType.SUPPORT)
+                    .name(SUPPORT_NAME)
+                    .members(members)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build());
+            return viewerResponse(conversation, adminId != null ? adminId : ownerId);
+        }
+        if (adminId != null) {
+            List<ConversationMember> members = new ArrayList<>(conversation.getMembers());
+            Optional<ConversationMember> admin = members.stream()
+                    .filter(member -> adminId.equals(member.getUserId())).findFirst();
+            boolean changed = true;
+            if (admin.isEmpty()) {
+                members.add(newMember(adminId, MemberRole.ADMIN, now));
+            } else if (admin.get().getLeftAt() != null) {
+                admin.get().setLeftAt(null);
+                admin.get().setJoinedAt(now);
+            } else {
+                changed = false;
+            }
+            if (changed) {
+                conversation.setMembers(members);
+                conversation.setUpdatedAt(now);
+                conversation = conversationRepository.save(conversation);
+            }
+        }
+        return viewerResponse(conversation, adminId != null ? adminId : ownerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ConversationResponseCommand> getSupportInbox(UUID adminId, Pageable pageable) {
+        return conversationRepository.findByType(ConversationType.SUPPORT, pageable)
+                .map(conversation -> viewerResponse(conversation, adminId));
+    }
+
+    /** Ten doan chat SUPPORT phia chu san; admin thay ten chu san (frontend lay tu thanh vien OWNER). */
+    static final String SUPPORT_NAME = "Hỗ trợ GOAT Sports";
 
     @Override
     @Transactional(readOnly = true)
@@ -246,7 +345,7 @@ public class SocialChatServiceImpl implements SocialChatService {
 
         // Chat hai người (riêng hoặc kèo 1-1): một trong hai đã chặn người kia thì không gửi được nữa (hai chiều).
         long activeMembers = conversation.getMembers().stream().filter(member -> member.getLeftAt() == null).count();
-        if (conversation.getType() == ConversationType.DIRECT
+        if (conversation.getType() == ConversationType.DIRECT || conversation.getType() == ConversationType.BUSINESS
                 || (conversation.getType() == ConversationType.MATCH && activeMembers == 2)) {
             for (ConversationMember member : conversation.getMembers()) {
                 if (member.getLeftAt() == null && !member.getUserId().equals(command.getSenderId()) &&
@@ -313,6 +412,7 @@ public class SocialChatServiceImpl implements SocialChatService {
                 .filter(member -> member.getLeftAt() == null && !member.isMuted()
                         && !member.getUserId().equals(command.getSenderId()))
                 .forEach(member -> webSocketPublisher.publishMessageToUser(member.getUserId(), savedMessage));
+        if (conversation.getType() == ConversationType.SUPPORT) webSocketPublisher.publishSupportMessage(savedMessage);
         return ChatResponseMapper.toMessageResponse(savedMessage);
     }
 
@@ -405,7 +505,13 @@ public class SocialChatServiceImpl implements SocialChatService {
                 .toList();
         active.stream().filter(member -> viewerId.equals(member.getUserId())).findFirst()
                 .ifPresent(member -> response.setMuted(member.isMuted()));
+        if (conversation.getType() == ConversationType.SUPPORT) {
+            UUID ownerId = conversation.getMembers().stream().filter(member -> member.getRole() == MemberRole.OWNER)
+                    .map(ConversationMember::getUserId).findFirst().orElse(null);
+            response.setAwaitingReply(ownerId != null && ownerId.equals(response.getLastSenderId()));
+        }
         if (active.size() == 2 && (conversation.getType() == ConversationType.DIRECT
+                || conversation.getType() == ConversationType.BUSINESS
                 || conversation.getType() == ConversationType.MATCH)) {
             active.stream().map(ConversationMember::getUserId).filter(id -> !id.equals(viewerId)).findFirst()
                     .ifPresent(other -> {

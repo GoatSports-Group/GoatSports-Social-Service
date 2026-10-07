@@ -36,6 +36,43 @@ public interface JpaConversationRepository extends JpaRepository<ConversationEnt
     )
     Page<UUID> findUserConversationIds(@Param("userId") UUID userId, Pageable pageable);
 
+    /** Nhu findUserConversationIds nhung chi cac loai trong {@code types} (vd. hop thu cong viec cua chu san). */
+    @Query(
+            value = "SELECT c.conversationId FROM ConversationEntity c " +
+                    "WHERE c.type IN :types AND EXISTS (SELECT m.memberId FROM ConversationMemberEntity m " +
+                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL " +
+                    VISIBLE_AFTER_CLEAR + ") " +
+                    "ORDER BY COALESCE(c.lastMessageAt, c.updatedAt, c.createdAt) DESC",
+            countQuery = "SELECT COUNT(c) FROM ConversationEntity c " +
+                    "WHERE c.type IN :types AND EXISTS (SELECT m.memberId FROM ConversationMemberEntity m " +
+                    "WHERE m.conversation = c AND m.userId = :userId AND m.leftAt IS NULL " +
+                    VISIBLE_AFTER_CLEAR + ")"
+    )
+    Page<UUID> findUserConversationIdsOfTypes(@Param("userId") UUID userId,
+                                              @Param("types") Collection<ConversationType> types,
+                                              Pageable pageable);
+
+    /** Hop thu ho tro cua doi quan tri: moi doan chat SUPPORT, khong phu thuoc admin da tham gia hay chua. */
+    @Query(
+            value = "SELECT c.conversationId FROM ConversationEntity c WHERE c.type = :type " +
+                    "ORDER BY COALESCE(c.lastMessageAt, c.updatedAt, c.createdAt) DESC",
+            countQuery = "SELECT COUNT(c) FROM ConversationEntity c WHERE c.type = :type"
+    )
+    Page<UUID> findConversationIdsByType(@Param("type") ConversationType type, Pageable pageable);
+
+    /** Doan chat SUPPORT cua mot chu san (chu san la thanh vien vai tro OWNER). */
+    @EntityGraph(attributePaths = "members")
+    @Query("""
+            SELECT c FROM ConversationEntity c
+            WHERE c.type = :type
+              AND EXISTS (SELECT m FROM ConversationMemberEntity m
+                          WHERE m.conversation = c AND m.userId = :ownerId AND m.role = :ownerRole)
+            ORDER BY c.createdAt ASC
+            """)
+    List<ConversationEntity> findOwnedByType(@Param("type") ConversationType type,
+                                             @Param("ownerId") UUID ownerId,
+                                             @Param("ownerRole") iuh.fit.socialservice.domain.enums.MemberRole ownerRole);
+
     @EntityGraph(attributePaths = "members")
     List<ConversationEntity> findAllByConversationIdIn(Collection<UUID> conversationIds);
 
