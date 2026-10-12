@@ -59,6 +59,16 @@ public class SocialModerationController {
         return ResponseEntity.ok(moderationConverter.toResponse(moderationService.getReport(reportId)));
     }
 
+    @GetMapping("/targets/{targetType}/{targetId}")
+    @PreAuthorize("hasAnyAuthority('MODERATE_SOCIAL_CONTENT', 'REVIEW_CONTENT_APPEAL')")
+    @ApiMessage("Lấy nội dung bị báo cáo thành công")
+    public ResponseEntity<iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand> getTarget(
+            @PathVariable iuh.fit.socialservice.domain.enums.ReportTargetType targetType,
+            @PathVariable UUID targetId
+    ) {
+        return ResponseEntity.ok(moderationService.getTarget(targetType, targetId));
+    }
+
     @PatchMapping("/reports/{reportId}/action")
     @PreAuthorize("hasAuthority('MODERATE_SOCIAL_CONTENT')")
     @AuditLog(action = "MODERATE_SOCIAL_CONTENT", description = "Xử lý báo cáo nội dung mạng xã hội")

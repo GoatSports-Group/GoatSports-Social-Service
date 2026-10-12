@@ -52,6 +52,8 @@ class SocialModerationServiceImplTest {
     private PostRepository postRepository;
     @Mock
     private PostCommentRepository commentRepository;
+    @Mock
+    private iuh.fit.socialservice.application.port.persistence.MessageRepository messageRepository;
 
     private SocialModerationServiceImpl service;
 
@@ -63,7 +65,7 @@ class SocialModerationServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new SocialModerationServiceImpl(
-                reportRepository, actionRepository, appealRepository, postRepository, commentRepository
+                reportRepository, actionRepository, appealRepository, postRepository, commentRepository, messageRepository
         );
         lenient().when(actionRepository.findByReportId(any())).thenReturn(List.of());
         lenient().when(reportRepository.save(any())).thenAnswer(call -> call.getArgument(0));
@@ -289,5 +291,27 @@ class SocialModerationServiceImplTest {
                 .build()))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("đã được xử lý");
+    }
+
+    @org.junit.jupiter.api.Test
+    void readsReportedPostEvenWhenHidden() {
+        when(postRepository.findById(postId)).thenReturn(Optional.of(Post.builder()
+                .postId(postId).authorId(authorId).content("Bài quảng cáo").status(PostStatus.HIDDEN)
+                .attachments(new java.util.ArrayList<>()).build()));
+
+        var target = service.getTarget(ReportTargetType.POST, postId);
+
+        assertThat(target.found()).isTrue();
+        assertThat(target.authorId()).isEqualTo(authorId);
+        assertThat(target.content()).isEqualTo("Bài quảng cáo");
+        assertThat(target.status()).isEqualTo("HIDDEN");
+    }
+
+    @org.junit.jupiter.api.Test
+    void reportsMissingContentInsteadOfFailing() {
+        when(commentRepository.findById(postId)).thenReturn(Optional.empty());
+
+        assertThat(service.getTarget(ReportTargetType.COMMENT, postId).found()).isFalse();
+        assertThat(service.getTarget(ReportTargetType.VENUE, postId).found()).isFalse();
     }
 }

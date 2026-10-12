@@ -5,9 +5,11 @@ import iuh.fit.socialservice.application.dto.request.ReviewAppealCommand;
 import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
 import iuh.fit.socialservice.application.dto.response.ContentAppealResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ContentReportResponseCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.ContentAppealRepository;
 import iuh.fit.socialservice.application.port.persistence.ContentReportRepository;
+import iuh.fit.socialservice.application.port.persistence.MessageRepository;
 import iuh.fit.socialservice.application.port.persistence.ModerationActionRepository;
 import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
@@ -47,6 +49,33 @@ public class SocialModerationServiceImpl implements SocialModerationService {
     private final ContentAppealRepository appealRepository;
     private final PostRepository postRepository;
     private final PostCommentRepository commentRepository;
+    private final MessageRepository messageRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public ModerationTargetResponseCommand getTarget(ReportTargetType targetType, UUID targetId) {
+        if (targetType == null || targetId == null) return ModerationTargetResponseCommand.missing(targetType, targetId);
+        return switch (targetType) {
+            case POST -> postRepository.findById(targetId)
+                    .map(post -> new ModerationTargetResponseCommand(targetType, targetId, true, post.getAuthorId(),
+                            post.getContent(), String.valueOf(post.getStatus()),
+                            post.getAttachments() == null ? 0 : post.getAttachments().size(), null, post.getCreatedAt()))
+                    .orElseGet(() -> ModerationTargetResponseCommand.missing(targetType, targetId));
+            case COMMENT -> commentRepository.findById(targetId)
+                    .map(comment -> new ModerationTargetResponseCommand(targetType, targetId, true, comment.getAuthorId(),
+                            comment.getContent(), String.valueOf(comment.getStatus()), 0, comment.getPostId(),
+                            comment.getCreatedAt()))
+                    .orElseGet(() -> ModerationTargetResponseCommand.missing(targetType, targetId));
+            case MESSAGE -> messageRepository.findById(targetId)
+                    .map(message -> new ModerationTargetResponseCommand(targetType, targetId, true, message.getSenderId(),
+                            message.getContent(), Boolean.TRUE.equals(message.getDeleted()) ? "DELETED" : String.valueOf(message.getStatus()),
+                            message.getAttachments() == null ? 0 : message.getAttachments().size(), null, message.getSentAt()))
+                    .orElseGet(() -> ModerationTargetResponseCommand.missing(targetType, targetId));
+            // Báo cáo một tài khoản: "tác giả" chính là tài khoản đó, không có nội dung riêng.
+            case USER -> new ModerationTargetResponseCommand(targetType, targetId, true, targetId, null, null, 0, null, null);
+            default -> ModerationTargetResponseCommand.missing(targetType, targetId);
+        };
+    }
 
     @Override
     @Transactional(readOnly = true)

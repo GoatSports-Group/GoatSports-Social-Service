@@ -19,6 +19,10 @@ public interface SocialModerationService {
 
     ContentReportResponseCommand getReport(UUID reportId) throws ServiceException;
 
+    /** Nội dung đang bị báo cáo / khiếu nại (bài viết, bình luận, tin nhắn), để admin đọc đầy đủ trước khi xử lý. */
+    iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand getTarget(
+            iuh.fit.socialservice.domain.enums.ReportTargetType targetType, UUID targetId);
+
     ContentReportResponseCommand actOnReport(ModerateContentCommand command) throws ServiceException;
 
     ContentAppealResponseCommand submitAppeal(SubmitAppealCommand command) throws ServiceException;
