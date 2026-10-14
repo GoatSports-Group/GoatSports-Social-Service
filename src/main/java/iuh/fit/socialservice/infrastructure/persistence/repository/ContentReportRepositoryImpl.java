@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.infrastructure.persistence.repository;
 
 import iuh.fit.socialservice.application.port.persistence.ContentReportRepository;
+import iuh.fit.socialservice.domain.entity.AiVerdict;
 import iuh.fit.socialservice.domain.entity.ContentReport;
 import iuh.fit.socialservice.domain.enums.ReportStatus;
 import iuh.fit.socialservice.domain.enums.ReportTargetType;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -67,8 +69,27 @@ public class ContentReportRepositoryImpl implements ContentReportRepository {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ContentReport> findByStatusIn(Collection<ReportStatus> statuses, Pageable pageable) {
-        return jpaRepository.findByStatusInOrderByCreatedAtAsc(statuses, pageable).map(this::toDomain);
+    public Page<ContentReport> findQueue(Collection<ReportStatus> statuses, Pageable pageable) {
+        return jpaRepository.findQueue(statuses, pageable).map(this::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ContentReport> findAwaitingAiVerdict(int maxAttempts, int limit) {
+        return jpaRepository.findAwaitingAiVerdict(maxAttempts, limit).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    @Transactional
+    public void saveAiVerdict(UUID reportId, AiVerdict verdict) {
+        jpaRepository.saveAiVerdict(
+                reportId, verdict.label(), verdict.severity(), verdict.reason(), verdict.checkedAt());
+    }
+
+    @Override
+    @Transactional
+    public void addAiAttempts(UUID reportId, int attempts) {
+        jpaRepository.addAiAttempts(reportId, attempts);
     }
 
     private ContentReport toDomain(ContentReportEntity entity) {
@@ -80,6 +101,8 @@ public class ContentReportRepositoryImpl implements ContentReportRepository {
                 .reason(entity.getReason())
                 .evidence(new ArrayList<>(entity.getEvidence()))
                 .status(entity.getStatus())
+                .aiVerdict(entity.getAiCheckedAt() == null ? null : new AiVerdict(
+                        entity.getAiLabel(), entity.getAiSeverity(), entity.getAiReason(), entity.getAiCheckedAt()))
                 .createdAt(entity.getCreatedAt())
                 .createdBy(entity.getCreatedBy())
                 .updatedAt(entity.getUpdatedAt())

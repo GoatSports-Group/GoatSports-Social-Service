@@ -27,4 +27,5 @@ public class ContentReport extends BaseEntity {
     @Builder.Default
     private List<String> evidence = new ArrayList<>();
     private ReportStatus status;
+    private AiVerdict aiVerdict;
 }

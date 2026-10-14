@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <!-- Goi y kiem duyet cua AI (ai-service, LLM) cho bao cao: nhan, muc 0-3, ly do. Chi la goi y, admin quyet dinh. -->
+    <changeSet id="20261014-social-report-ai-verdict" author="minhdat">
+        <addColumn tableName="content_reports">
+            <column name="ai_label" type="VARCHAR(20)"/>
+            <column name="ai_severity" type="INT"/>
+            <column name="ai_reason" type="VARCHAR(300)"/>
+            <column name="ai_checked_at" type="TIMESTAMP"/>
+            <column name="ai_attempts" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

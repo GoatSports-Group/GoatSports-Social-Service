@@ -85,7 +85,7 @@ public class SocialModerationServiceImpl implements SocialModerationService {
     ) {
         Collection<ReportStatus> effective = statuses == null || statuses.isEmpty() ? OPEN_STATUSES : statuses;
         // ponytail: N+1 khi nạp action cho từng report - chap nhan vi trang admin chi vai chuc dong.
-        return reportRepository.findByStatusIn(effective, pageable).map(this::toResponse);
+        return reportRepository.findQueue(effective, pageable).map(this::toResponse);
     }
 
     @Override
@@ -268,6 +268,7 @@ public class SocialModerationServiceImpl implements SocialModerationService {
                 .createdAt(report.getCreatedAt())
                 .updatedAt(report.getUpdatedAt())
                 .actions(actions)
+                .ai(report.getAiVerdict())
                 .build();
     }
 

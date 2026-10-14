@@ -25,6 +25,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -75,6 +76,18 @@ public class ContentReportEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private ReportStatus status;
+
+    @Column(name = "ai_label", length = 20, insertable = false, updatable = false)
+    private String aiLabel;
+
+    @Column(name = "ai_severity", insertable = false, updatable = false)
+    private Integer aiSeverity;
+
+    @Column(name = "ai_reason", length = 300, insertable = false, updatable = false)
+    private String aiReason;
+
+    @Column(name = "ai_checked_at", insertable = false, updatable = false)
+    private LocalDateTime aiCheckedAt;
 
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

@@ -3,6 +3,7 @@ package iuh.fit.socialservice.application.dto.response;
 import iuh.fit.socialservice.domain.enums.ModerationActionType;
 import iuh.fit.socialservice.domain.enums.ReportStatus;
 import iuh.fit.socialservice.domain.enums.ReportTargetType;
+import iuh.fit.socialservice.domain.entity.AiVerdict;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,6 +30,8 @@ public class ContentReportResponseCommand {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ActionItem> actions;
+    /** Gợi ý của AI, chỉ trả cho admin; null khi AI chưa đọc hoặc không đọc được. */
+    private AiVerdict ai;
 
     @Getter
     @Setter

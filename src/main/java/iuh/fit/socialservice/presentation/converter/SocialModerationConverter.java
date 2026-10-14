@@ -34,6 +34,7 @@ public class SocialModerationConverter {
                 .createdAt(command.getCreatedAt())
                 .updatedAt(command.getUpdatedAt())
                 .actions(actions)
+                .ai(command.getAi())
                 .build();
     }
 
