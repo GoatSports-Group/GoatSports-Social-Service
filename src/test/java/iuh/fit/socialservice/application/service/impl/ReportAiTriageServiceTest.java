@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -73,6 +74,11 @@ class ReportAiTriageServiceTest {
         verify(classifier).classify(any(), any(), any());
         verify(reportRepository, never()).saveAiVerdict(any(), any());
         verify(reportRepository, never()).addAiAttempts(any(), anyInt());
+
+        // Gemini 429: lượt quét kế tiếp không gọi lại ngay mà chờ hết thời gian lùi.
+        service.triagePending();
+        verify(classifier, times(1)).classify(any(), any(), any());
+        org.assertj.core.api.Assertions.assertThat(service.isPaused()).isTrue();
     }
 
     @Test

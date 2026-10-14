@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -32,9 +34,15 @@ public class ReportAiTriageService {
     @Value("${moderation.ai.batch-size:2}")
     private int batchSize = 2;
 
+    static final Duration FIRST_BACKOFF = Duration.ofMinutes(1);
+    static final Duration MAX_BACKOFF = Duration.ofMinutes(30);
+    private Duration backoff = Duration.ZERO;
+    private Instant pausedUntil = Instant.EPOCH;
+
     @Scheduled(initialDelayString = "${moderation.ai.initial-delay-ms:60000}",
             fixedDelayString = "${moderation.ai.scan-ms:30000}")
     public void triagePending() {
+        if (isPaused()) return;
         for (ContentReport report : reportRepository.findAwaitingAiVerdict(MAX_ATTEMPTS, batchSize)) {
             ModerationTargetResponseCommand target =
                     moderationService.getTarget(report.getTargetType(), report.getTargetId());
@@ -46,12 +54,27 @@ public class ReportAiTriageService {
             try {
                 Optional<AiVerdict> verdict =
                         classifier.classify(report.getTargetType().name(), target.content(), report.getReason());
-                if (verdict.isEmpty()) return;
+                if (verdict.isEmpty()) {
+                    backOff();
+                    return;
+                }
+                backoff = Duration.ZERO;
                 reportRepository.saveAiVerdict(report.getReportId(), verdict.get());
             } catch (ContentClassifier.Unclassifiable exception) {
                 log.warn("AI could not classify report {}: {}", report.getReportId(), exception.getMessage());
                 reportRepository.addAiAttempts(report.getReportId(), 1);
             }
         }
+    }
+
+    private void backOff() {
+        backoff = backoff.isZero() ? FIRST_BACKOFF : backoff.multipliedBy(2);
+        if (backoff.compareTo(MAX_BACKOFF) > 0) backoff = MAX_BACKOFF;
+        pausedUntil = Instant.now().plus(backoff);
+        log.info("AI moderation unavailable, pausing for {} min", backoff.toMinutes());
+    }
+
+    boolean isPaused() {
+        return Instant.now().isBefore(pausedUntil);
     }
 }
