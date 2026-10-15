@@ -14,7 +14,9 @@ import iuh.fit.socialservice.application.dto.request.SavePostCommand;
 import iuh.fit.socialservice.application.dto.request.SharePostCommand;
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.external.ActivityEventPublisher;
 import iuh.fit.socialservice.application.port.external.ClubDirectory;
+import iuh.fit.socialservice.application.port.external.PostRanker;
 import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.application.port.persistence.FollowRepository;
@@ -46,6 +48,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -80,6 +83,8 @@ class SocialPostServiceImplTest {
     @Mock private StorageKeyPromoter storageKeyPromoter;
     @Mock private SocialEventPublisher eventPublisher;
     @Mock private ClubDirectory clubDirectory;
+    @Mock private ActivityEventPublisher activityPublisher;
+    @Mock private PostRanker postRanker;
 
     private SocialPostServiceImpl service;
 
@@ -89,7 +94,7 @@ class SocialPostServiceImplTest {
         PostViewAssembler assembler = new PostViewAssembler(postRepository, commentRepository, reactionRepository,
                 shareRepository, friendshipRepository, userBlockRepository, followRepository);
         service = new SocialPostServiceImpl(postRepository, commentRepository, reactionRepository, assembler,
-                storageKeyPromoter, eventPublisher, clubDirectory);
+                storageKeyPromoter, eventPublisher, clubDirectory, activityPublisher, postRanker);
         lenient().when(storageKeyPromoter.promote(org.mockito.ArgumentMatchers.anyList(), anyString()))
                 .thenAnswer(call -> call.getArgument(0));
     }
@@ -563,7 +568,7 @@ class SocialPostServiceImplTest {
         Post b = post(UUID.randomUUID(), PostVisibility.PUBLIC);
         Post c = post(UUID.randomUUID(), PostVisibility.PUBLIC);
         PageRequest page = PageRequest.of(0, 10);
-        when(postRepository.findFeed(any(), eq(page))).thenReturn(new PageImpl<>(List.of(a, b, c), page, 3));
+        when(postRepository.findFeed(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(a, b, c), page, 3));
         when(reactionRepository.countByPostIds(any(), eq(ReactionType.LIKE))).thenReturn(Map.of(b.getPostId(), 4L));
         when(postRepository.countPublishedShares(any())).thenReturn(Map.of(b.getPostId(), 1L));
         when(shareRepository.countByPostIds(any())).thenReturn(Map.of(b.getPostId(), 2L));
@@ -618,5 +623,93 @@ class SocialPostServiceImplTest {
         assertThat(SocialPostServiceImpl.snippet("  a\n\n b  ")).isEqualTo("a b");
         assertThat(SocialPostServiceImpl.snippet("x".repeat(200))).hasSize(80).endsWith("…");
         assertThat(SocialPostServiceImpl.snippet(null)).isEmpty();
+    }
+
+    // ---- hanh vi cho goi y + xep hang Kham pha -------------------------------------------------------------------
+
+    @Test
+    void likeAndUnlikeAreReportedSoTheSignalCanBeWithdrawn() throws ServiceException {
+        UUID actorId = UUID.randomUUID();
+        Post target = post(UUID.randomUUID(), PostVisibility.PUBLIC);
+        target.setSport(PostSport.TENNIS);
+        when(postRepository.findById(target.getPostId())).thenReturn(Optional.of(target));
+        when(reactionRepository.find(target.getPostId(), actorId, ReactionType.LIKE)).thenReturn(Optional.empty());
+
+        service.likePost(target.getPostId(), actorId);
+        service.unlikePost(target.getPostId(), actorId);
+
+        verify(activityPublisher).publish(ActivityEventPublisher.POST_REACTION, actorId, Map.of(
+                "reaction", "LIKE", "active", true, "postId", target.getPostId().toString(),
+                "authorId", target.getAuthorId().toString(), "sport", "TENNIS"));
+        verify(activityPublisher).publish(ActivityEventPublisher.POST_REACTION, actorId, Map.of(
+                "reaction", "LIKE", "active", false, "postId", target.getPostId().toString(),
+                "authorId", target.getAuthorId().toString(), "sport", "TENNIS"));
+    }
+
+    @Test
+    void deletingACommentWithdrawsItsSignal() throws ServiceException {
+        UUID actorId = UUID.randomUUID();
+        UUID postId = UUID.randomUUID();
+        PostComment comment = PostComment.builder().commentId(UUID.randomUUID()).postId(postId).authorId(actorId)
+                .status(PostStatus.PUBLISHED).build();
+        when(commentRepository.findById(comment.getCommentId())).thenReturn(Optional.of(comment));
+
+        service.deleteComment(comment.getCommentId(), actorId);
+
+        verify(activityPublisher).publish(ActivityEventPublisher.POST_COMMENT, actorId, Map.of(
+                "postId", postId.toString(), "commentId", comment.getCommentId().toString(), "active", false));
+    }
+
+    @Test
+    void exploreReordersTheNewestWindowByScore() {
+        UUID viewer = UUID.randomUUID();
+        Post newest = post(UUID.randomUUID(), PostVisibility.PUBLIC);
+        Post middle = post(UUID.randomUUID(), PostVisibility.PUBLIC);
+        Post oldest = post(UUID.randomUUID(), PostVisibility.PUBLIC);
+        when(postRepository.findFeed(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(newest, middle, oldest), PageRequest.of(0, 100), 3));
+        when(postRanker.rank(eq(viewer), any())).thenReturn(Map.of(
+                oldest.getPostId(), 0.9, newest.getPostId(), 0.5, middle.getPostId(), 0.5));
+
+        Page<PostResponseCommand> first = service.getFeed(viewer,
+                new SocialPostService.FeedFilter(false, null, null, null), PageRequest.of(0, 2));
+
+        // Cung diem thi giu thu tu moi nhat; tong so bai khong doi.
+        assertThat(first.getContent()).extracting(PostResponseCommand::getPostId)
+                .containsExactly(oldest.getPostId(), newest.getPostId());
+        assertThat(first.getTotalElements()).isEqualTo(3);
+    }
+
+    @Test
+    void aPageCrossingTheWindowContinuesWithTheNewestOrder() {
+        UUID viewer = UUID.randomUUID();
+        List<Post> all = java.util.stream.IntStream.range(0, 120)
+                .mapToObj(index -> post(UUID.randomUUID(), PostVisibility.PUBLIC)).toList();
+        when(postRepository.findFeed(any(), any(Pageable.class))).thenAnswer(call -> {
+            Pageable requested = call.getArgument(1);
+            int from = (int) requested.getOffset();
+            int to = Math.min(from + requested.getPageSize(), all.size());
+            return new PageImpl<>(all.subList(from, to), requested, all.size());
+        });
+        when(postRanker.rank(eq(viewer), any())).thenReturn(Map.of());
+
+        Page<PostResponseCommand> page = service.getFeed(viewer,
+                new SocialPostService.FeedFilter(false, null, null, null), PageRequest.of(3, 30));
+
+        // Bai 90..99 lay tu cua so (AI khong cham thi giu thu tu moi nhat), 100..119 lay theo thu tu moi nhat.
+        assertThat(page.getContent()).extracting(PostResponseCommand::getPostId)
+                .containsExactlyElementsOf(all.subList(90, 120).stream().map(Post::getPostId).toList());
+        assertThat(page.getTotalElements()).isEqualTo(120);
+    }
+
+    @Test
+    void guestsAndFilteredTabsKeepTheNewestOrderWithoutAskingAi() {
+        PageRequest page = PageRequest.of(0, 10);
+        when(postRepository.findFeed(any(), eq(page))).thenReturn(new PageImpl<>(List.of(), page, 0));
+
+        service.getFeed(null, new SocialPostService.FeedFilter(false, null, null, null), page);
+        service.getFeed(UUID.randomUUID(), new SocialPostService.FeedFilter(true, null, null, null), page);
+
+        verify(postRanker, never()).rank(any(), any());
     }
 }

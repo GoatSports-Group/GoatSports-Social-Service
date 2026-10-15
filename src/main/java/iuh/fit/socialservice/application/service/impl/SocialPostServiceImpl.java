@@ -11,6 +11,8 @@ import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.port.external.ClubDirectory;
+import iuh.fit.socialservice.application.port.external.ActivityEventPublisher;
+import iuh.fit.socialservice.application.port.external.PostRanker;
 import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
@@ -62,6 +64,11 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final StorageKeyPromoter storageKeyPromoter;
     private final SocialEventPublisher eventPublisher;
     private final ClubDirectory clubDirectory;
+    private final ActivityEventPublisher activityPublisher;
+    private final PostRanker postRanker;
+
+    /** Tab Khám phá: chỉ chấm điểm và sắp lại 100 bài mới nhất; sau đó là thứ tự mới nhất như cũ. */
+    static final int RANKED_WINDOW = 100;
 
     private static final int MAX_HIGHLIGHT_CONTENT = 2000;
     private static final org.springframework.data.domain.Sort CALL_ORDER = org.springframework.data.domain.Sort.by(
@@ -74,6 +81,9 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     public Page<PostResponseCommand> getFeed(UUID viewerId, FeedFilter filter, Pageable pageable) {
         Viewer viewer = assembler.viewer(viewerId);
+        if (viewer.id() != null && isExplore(filter)) {
+            return rankedExplore(viewer, filter, pageable);
+        }
         // Keo tim nguoi: keo sap dien ra dung truoc (ngay, gio choi), khong theo luc dang.
         Pageable order = filter.playerCallsOnly()
                 ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), CALL_ORDER)
@@ -323,6 +333,7 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .publishedAt(now)
                 .tags(PostTags.extract(caption))
                 .build());
+        recordActivity(ActivityEventPublisher.POST_SHARED, actor.id(), original, Map.of());
         notify(SocialEventPublisher.POST_SHARED, original.getAuthorId(), actor.id(), original, snippet(caption), null);
         return assembler.toResponse(share, actor);
     }
@@ -335,6 +346,7 @@ public class SocialPostServiceImpl implements SocialPostService {
         Post post = publishedPost(postId);
         ensureVisible(post, actor);
         if (addReaction(postId, actor.id(), ReactionType.LIKE)) {
+            recordReaction(actor.id(), post, ReactionType.LIKE, true);
             // Cung khoa → cung eventId: bo thich roi thich lai khong bao lan nua.
             notify(SocialEventPublisher.POST_LIKED, post.getAuthorId(), actor.id(), post, snippet(post.getContent()),
                     "like:" + postId + ":" + actor.id());
@@ -348,6 +360,7 @@ public class SocialPostServiceImpl implements SocialPostService {
         Post post = publishedPost(postId);
         ensureVisible(post, actor);
         reactionRepository.delete(postId, actor.id(), ReactionType.LIKE);
+        recordReaction(actor.id(), post, ReactionType.LIKE, false);
         return assembler.toResponse(post, actor);
     }
 
@@ -356,7 +369,9 @@ public class SocialPostServiceImpl implements SocialPostService {
         Viewer actor = assembler.viewer(requireActor(actorId));
         Post post = publishedPost(postId);
         ensureVisible(post, actor);
-        addReaction(postId, actor.id(), ReactionType.SAVE);
+        if (addReaction(postId, actor.id(), ReactionType.SAVE)) {
+            recordReaction(actor.id(), post, ReactionType.SAVE, true);
+        }
         return assembler.toResponse(post, actor);
     }
 
@@ -367,6 +382,7 @@ public class SocialPostServiceImpl implements SocialPostService {
         reactionRepository.delete(postId, actor.id(), ReactionType.SAVE);
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ServiceException("Không tìm thấy bài viết"));
+        recordReaction(actor.id(), post, ReactionType.SAVE, false);
         return assembler.toResponse(post, actor);
     }
 
@@ -406,6 +422,10 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
+        if (saved.getCommentId() != null) {
+            recordActivity(ActivityEventPublisher.POST_COMMENT, actor.id(), post,
+                    Map.of("commentId", saved.getCommentId().toString(), "active", true));
+        }
         String snippet = snippet(content);
         notify(SocialEventPublisher.POST_COMMENTED, post.getAuthorId(), actor.id(), post, snippet, null);
         Set<UUID> alreadyTold = new HashSet<>(Set.of(post.getAuthorId()));
@@ -444,6 +464,8 @@ public class SocialPostServiceImpl implements SocialPostService {
         comment.setStatus(PostStatus.REMOVED);
         comment.setUpdatedAt(LocalDateTime.now());
         commentRepository.save(comment);
+        activityPublisher.publish(ActivityEventPublisher.POST_COMMENT, actorId, Map.of(
+                "postId", comment.getPostId().toString(), "commentId", commentId.toString(), "active", false));
     }
 
     // ---- helpers -------------------------------------------------------------------------------
@@ -468,6 +490,60 @@ public class SocialPostServiceImpl implements SocialPostService {
             throw new ServiceException("Kèo phải cùng môn với câu lạc bộ");
         }
         return call.withClub(club.clubId(), club.name());
+    }
+
+    private static boolean isExplore(FeedFilter filter) {
+        return !filter.followingOnly() && filter.authorId() == null && filter.tag() == null
+                && !filter.playerCallsOnly() && !filter.withFriends();
+    }
+
+    /**
+     * Khám phá cho người đã đăng nhập: lấy {@link #RANKED_WINDOW} bài mới nhất người xem được thấy (cùng bộ lọc môn),
+     * nhờ AI chấm điểm rồi sắp lại; phần sau cửa sổ giữ thứ tự mới nhất, nên tổng số bài và cách phân trang không đổi.
+     * AI không dùng được thì trả đúng thứ tự mới nhất.
+     */
+    private Page<PostResponseCommand> rankedExplore(Viewer viewer, FeedFilter filter, Pageable pageable) {
+        PostRepository.FeedQuery query = feedQuery(viewer, filter);
+        int start = (int) pageable.getOffset();
+        if (start >= RANKED_WINDOW) {
+            return page(postRepository.findFeed(query, pageable), viewer);
+        }
+        Page<Post> window = postRepository.findFeed(query, PageRequest.of(0, RANKED_WINDOW, pageable.getSort()));
+        List<PostResponseCommand> ranked = new ArrayList<>(assembler.toResponses(window.getContent(), viewer));
+        Map<UUID, Double> scores = postRanker.rank(viewer.id(), ranked.stream()
+                .map(post -> new PostRanker.Candidate(post.getPostId(), post.getAuthorId(), post.getSport(),
+                        post.getLikeCount(), post.getCommentCount(), post.getPublishedAt()))
+                .toList());
+        if (!scores.isEmpty()) {
+            // Sắp xếp ổn định: cùng điểm thì giữ thứ tự mới nhất.
+            ranked.sort(Comparator.comparingDouble((PostResponseCommand post) ->
+                    scores.getOrDefault(post.getPostId(), 0.0)).reversed());
+        }
+        int end = start + pageable.getPageSize();
+        List<PostResponseCommand> items = new ArrayList<>(ranked.subList(Math.min(start, ranked.size()),
+                Math.min(end, ranked.size())));
+        if (end > ranked.size() && window.getTotalElements() > ranked.size()) {
+            // Trang chạm cuối cửa sổ: phần còn lại lấy theo thứ tự mới nhất, bắt đầu từ bài thứ RANKED_WINDOW.
+            List<Post> chronological = postRepository.findFeed(query, pageable).getContent();
+            int skip = Math.max(0, ranked.size() - start);
+            if (skip < chronological.size()) {
+                items.addAll(assembler.toResponses(chronological.subList(skip, chronological.size()), viewer));
+            }
+        }
+        return new PageImpl<>(items, pageable, window.getTotalElements());
+    }
+
+    private void recordReaction(UUID actorId, Post post, ReactionType type, boolean active) {
+        recordActivity(ActivityEventPublisher.POST_REACTION, actorId, post,
+                Map.of("reaction", type.name(), "active", active));
+    }
+
+    private void recordActivity(String eventType, UUID actorId, Post post, Map<String, Object> extra) {
+        Map<String, Object> payload = new LinkedHashMap<>(extra);
+        payload.put("postId", post.getPostId().toString());
+        payload.put("authorId", post.getAuthorId().toString());
+        if (post.getSport() != null) payload.put("sport", post.getSport().name());
+        activityPublisher.publish(eventType, actorId, payload);
     }
 
     private Page<PostResponseCommand> page(Page<Post> posts, Viewer viewer) {
