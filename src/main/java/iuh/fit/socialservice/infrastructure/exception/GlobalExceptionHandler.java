@@ -14,6 +14,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,6 +36,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ForbiddenException.class)
     ResponseEntity<BaseResponse<Object>> handleForbidden(ForbiddenException exception) {
         return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), "Không có quyền");
+    }
+
+    /** @PreAuthorize từ chối: không để rơi xuống handler Exception chung thành 500. */
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<BaseResponse<Object>> handleAccessDenied(AccessDeniedException exception) {
+        return errorResponse(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này", "Không có quyền");
     }
 
     @ExceptionHandler(ServiceException.class)
