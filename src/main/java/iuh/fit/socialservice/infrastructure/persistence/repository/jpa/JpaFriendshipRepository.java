@@ -25,4 +25,8 @@ public interface JpaFriendshipRepository extends JpaRepository<FriendshipEntity,
 
     @Query("SELECT f FROM FriendshipEntity f WHERE (f.requesterId = :u1 AND f.addresseeId = :u2) OR (f.requesterId = :u2 AND f.addresseeId = :u1)")
     Optional<FriendshipEntity> findBetweenUsers(@Param("u1") UUID u1, @Param("u2") UUID u2);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("delete from FriendshipEntity f where f.requesterId = :userId or f.addresseeId = :userId")
+    int deleteAllOf(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

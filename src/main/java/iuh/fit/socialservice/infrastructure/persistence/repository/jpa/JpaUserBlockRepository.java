@@ -17,4 +17,8 @@ public interface JpaUserBlockRepository extends JpaRepository<UserBlockEntity, U
     List<UserBlockEntity> findRelatedToUser(@Param("userId") UUID userId);
     Optional<UserBlockEntity> findByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId);
     boolean existsByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("delete from UserBlockEntity b where b.blockerId = :userId or b.blockedUserId = :userId")
+    int deleteAllOf(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

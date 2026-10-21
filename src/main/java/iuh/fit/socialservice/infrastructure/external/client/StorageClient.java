@@ -21,6 +21,9 @@ public interface StorageClient {
     @PostMapping("/move")
     BaseResponse<Void> moveFile(@RequestBody MoveFileRequest request);
 
+    @org.springframework.web.bind.annotation.DeleteMapping
+    void delete(@org.springframework.web.bind.annotation.RequestParam("key") String key);
+
     record FileMoveRequest(String tempKey) { }
 
     record MoveFileRequest(List<FileMoveRequest> requests, String correlationId) { }

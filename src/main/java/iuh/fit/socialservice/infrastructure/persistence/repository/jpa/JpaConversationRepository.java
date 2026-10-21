@@ -138,4 +138,16 @@ public interface JpaConversationRepository extends JpaRepository<ConversationEnt
             ORDER BY c.createdAt ASC
             """)
     List<ConversationEntity> findAllPairConversations(@Param("types") Collection<ConversationType> types);
+
+    /** Rời mọi nhóm chat (giữ chat 1-1 để người kia còn lịch sử). */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("""
+            update ConversationMemberEntity m set m.leftAt = :now
+            where m.userId = :userId and m.leftAt is null
+              and m.conversation.conversationId in (
+                  select c.conversationId from ConversationEntity c
+                  where c.type <> iuh.fit.socialservice.domain.enums.ConversationType.DIRECT)
+            """)
+    int leaveGroupConversations(@org.springframework.data.repository.query.Param("userId") UUID userId,
+                                @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now);
 }

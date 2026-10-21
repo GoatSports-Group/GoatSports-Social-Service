@@ -30,4 +30,8 @@ public interface JpaFollowRepository extends JpaRepository<FollowEntity, UUID> {
     org.springframework.data.domain.Page<FollowEntity> findByFollowerIdAndTargetTypeAndTargetIdNotIn(
             UUID followerId, FollowTargetType targetType, java.util.Collection<UUID> hidden,
             org.springframework.data.domain.Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("delete from FollowEntity f where f.followerId = :userId or f.targetId = :userId")
+    int deleteAllOf(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }
