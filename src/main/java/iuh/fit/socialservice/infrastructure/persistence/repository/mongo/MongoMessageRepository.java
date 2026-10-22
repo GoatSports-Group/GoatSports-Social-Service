@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,7 +16,7 @@ public interface MongoMessageRepository extends MongoRepository<MessageEntity, S
     Page<MessageEntity> findByConversationIdOrderBySentAtDesc(String conversationId, Pageable pageable);
 
     Page<MessageEntity> findByConversationIdAndSentAtAfterOrderBySentAtDesc(
-            String conversationId, java.time.LocalDateTime after, Pageable pageable);
+            String conversationId, LocalDateTime after, Pageable pageable);
 
     List<MessageEntity> findByConversationIdOrderBySentAtAsc(String conversationId);
 

@@ -8,6 +8,7 @@ import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFriend
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,7 +38,7 @@ public class FriendshipRepositoryImpl implements FriendshipRepository {
     }
 
     @Override
-    public List<Friendship> findAcceptedOf(java.util.Collection<UUID> userIds) {
+    public List<Friendship> findAcceptedOf(Collection<UUID> userIds) {
         if (userIds.isEmpty()) return List.of();
         return jpaFriendshipRepository.findByStatusAndUserIn(FriendshipStatus.ACCEPTED, userIds).stream()
                 .map(friendshipEntityMapper::toDomain)

@@ -37,6 +37,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -71,10 +72,10 @@ public class SocialPostServiceImpl implements SocialPostService {
     static final int RANKED_WINDOW = 100;
 
     private static final int MAX_HIGHLIGHT_CONTENT = 2000;
-    private static final org.springframework.data.domain.Sort CALL_ORDER = org.springframework.data.domain.Sort.by(
-            org.springframework.data.domain.Sort.Order.asc("playerCall.playDate"),
-            org.springframework.data.domain.Sort.Order.asc("playerCall.startTime"),
-            org.springframework.data.domain.Sort.Order.desc("publishedAt"));
+    private static final Sort CALL_ORDER = Sort.by(
+            Sort.Order.asc("playerCall.playDate"),
+            Sort.Order.asc("playerCall.startTime"),
+            Sort.Order.desc("publishedAt"));
 
     // ---- reads ---------------------------------------------------------------------------------
 
@@ -105,7 +106,7 @@ public class SocialPostServiceImpl implements SocialPostService {
                 base.followingIds(), base.blockedUserIds(), false, sport, null, null,
                 new PostRepository.PlayerCallFilter(club, true));
         Pageable page = PageRequest.of(0, Math.max(1, Math.min(limit, 24)),
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "publishedAt"));
+                Sort.by(Sort.Direction.DESC, "publishedAt"));
         return assembler.toResponses(postRepository.findFeed(query, page).getContent(), viewer);
     }
 

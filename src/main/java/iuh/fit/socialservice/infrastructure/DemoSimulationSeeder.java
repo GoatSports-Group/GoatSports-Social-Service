@@ -22,6 +22,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -246,7 +248,7 @@ public class DemoSimulationSeeder implements CommandLineRunner {
         return inserted;
     }
 
-    private static void bind(java.sql.PreparedStatement statement, Object[] row) throws java.sql.SQLException {
+    private static void bind(PreparedStatement statement, Object[] row) throws SQLException {
         for (int column = 0; column < row.length; column++) statement.setObject(column + 1, row[column]);
     }
 

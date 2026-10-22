@@ -3,6 +3,7 @@ package iuh.fit.socialservice.domain.service;
 import iuh.fit.socialservice.domain.entity.Mention;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -26,7 +27,7 @@ class PostMentionsTest {
     @Test
     void dropsTheAuthorBlockedPeopleDuplicatesAndBadRows() {
         UUID blocked = UUID.randomUUID();
-        List<Mention> requested = new java.util.ArrayList<>(List.of(
+        List<Mention> requested = new ArrayList<>(List.of(
                 new Mention(author, "Tôi"), new Mention(blocked, "Chặn"), new Mention(a, "An"), new Mention(a, "An"),
                 new Mention(null, "An"), new Mention(b, "")));
         requested.add(null);

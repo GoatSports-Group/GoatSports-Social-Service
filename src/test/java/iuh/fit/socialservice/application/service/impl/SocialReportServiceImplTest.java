@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.application.service.impl;
 
 import iuh.fit.socialservice.application.dto.request.CreateContentReportCommand;
+import iuh.fit.socialservice.application.dto.response.ContentReportResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.ContentReportRepository;
 import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
@@ -54,7 +55,7 @@ class SocialReportServiceImplTest {
             return report;
         });
 
-        var response = service.createReport(CreateContentReportCommand.builder()
+        ContentReportResponseCommand response = service.createReport(CreateContentReportCommand.builder()
                 .reporterId(reporterId)
                 .targetType(ReportTargetType.POST)
                 .targetId(postId)

@@ -5,6 +5,7 @@ import iuh.fit.socialservice.application.dto.request.SyncContextConversationComm
 import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
+import iuh.fit.socialservice.application.dto.response.MessageWindowCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
 import iuh.fit.socialservice.application.port.persistence.MessageRepository;
@@ -31,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -58,7 +61,7 @@ public class SocialChatServiceImpl implements SocialChatService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ConversationResponseCommand> getUserConversations(UUID userId, java.util.Collection<ConversationType> types,
+    public Page<ConversationResponseCommand> getUserConversations(UUID userId, Collection<ConversationType> types,
                                                                   Pageable pageable) {
         return conversationRepository.findUserConversations(userId, types, pageable)
                 .map(conversation -> viewerResponse(conversation, userId));
@@ -446,7 +449,7 @@ public class SocialChatServiceImpl implements SocialChatService {
 
     @Override
     @Transactional(readOnly = true)
-    public iuh.fit.socialservice.application.dto.response.MessageWindowCommand getUnreadWindow(
+    public MessageWindowCommand getUnreadWindow(
             UUID conversationId, UUID userId, int size) throws ServiceException {
         Conversation conversation = requireConversation(conversationId);
         LocalDateTime floor = requireActiveMember(conversation, userId).getClearedAt();
@@ -454,7 +457,7 @@ public class SocialChatServiceImpl implements SocialChatService {
         Optional<Message> firstUnread = messageRepository.findFirstUnread(conversationId, userId, floor);
         if (firstUnread.isEmpty()) {
             List<Message> latest = messageRepository.findOlder(conversationId, LocalDateTime.now().plusDays(1), floor, limit);
-            return new iuh.fit.socialservice.application.dto.response.MessageWindowCommand(
+            return new MessageWindowCommand(
                     latest.stream().map(ChatResponseMapper::toMessageResponse).toList(), null, latest.size() == limit, false);
         }
         LocalDateTime anchor = firstUnread.get().getSentAt();
@@ -462,14 +465,14 @@ public class SocialChatServiceImpl implements SocialChatService {
         List<Message> older = messageRepository.findOlder(conversationId, anchor, floor, UNREAD_CONTEXT);
         List<Message> window = new ArrayList<>(newestFirst(newer));
         window.addAll(older);
-        return new iuh.fit.socialservice.application.dto.response.MessageWindowCommand(
+        return new MessageWindowCommand(
                 window.stream().map(ChatResponseMapper::toMessageResponse).toList(),
                 firstUnread.get().getMessageId(), older.size() == UNREAD_CONTEXT, newer.size() == limit);
     }
 
     private static List<Message> newestFirst(List<Message> oldestFirst) {
         List<Message> reversed = new ArrayList<>(oldestFirst);
-        java.util.Collections.reverse(reversed);
+        Collections.reverse(reversed);
         return reversed;
     }
 

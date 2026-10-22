@@ -8,6 +8,7 @@ import iuh.fit.socialservice.domain.entity.AiVerdict;
 import iuh.fit.socialservice.domain.entity.ContentReport;
 import iuh.fit.socialservice.domain.enums.ReportStatus;
 import iuh.fit.socialservice.domain.enums.ReportTargetType;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,7 +79,7 @@ class ReportAiTriageServiceTest {
         // Gemini 429: lượt quét kế tiếp không gọi lại ngay mà chờ hết thời gian lùi.
         service.triagePending();
         verify(classifier, times(1)).classify(any(), any(), any());
-        org.assertj.core.api.Assertions.assertThat(service.isPaused()).isTrue();
+        Assertions.assertThat(service.isPaused()).isTrue();
     }
 
     @Test

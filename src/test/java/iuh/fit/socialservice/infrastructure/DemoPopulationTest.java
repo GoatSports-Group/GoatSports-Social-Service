@@ -2,6 +2,7 @@ package iuh.fit.socialservice.infrastructure;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -14,7 +15,7 @@ class DemoPopulationTest {
 
     @Test
     void generatesTheSamePopulationInEveryService() {
-        var players = DemoPopulation.players();
+        List<DemoPopulation.Player> players = DemoPopulation.players();
         assertThat(players).hasSize(DemoPopulation.PLAYERS);
         assertThat(players.get(0).fullName()).isEqualTo("Lý Hoàng Tuấn");
         assertThat(players.get(0).city().name()).isEqualTo("Khánh Hòa");
@@ -28,7 +29,7 @@ class DemoPopulationTest {
 
     @Test
     void everyPlayerHasAWeekendSlotAndUniqueAccount() {
-        var players = DemoPopulation.players();
+        List<DemoPopulation.Player> players = DemoPopulation.players();
         assertThat(players).allSatisfy(player -> assertThat(player.availability())
                 .anyMatch(slot -> slot.day().getValue() >= 6));
         assertThat(players.stream().map(DemoPopulation.Player::email).distinct()).hasSize(players.size());

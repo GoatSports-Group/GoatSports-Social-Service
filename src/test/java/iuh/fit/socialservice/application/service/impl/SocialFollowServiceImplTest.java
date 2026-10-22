@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -225,9 +226,9 @@ class SocialFollowServiceImplTest {
         UUID newer = UUID.randomUUID();
         when(followRepository.findByFollowerIdAndTargetType(follower, FollowTargetType.VENUE)).thenReturn(List.of(
                 Follow.builder().followerId(follower).targetType(FollowTargetType.VENUE).targetId(older)
-                        .createdAt(java.time.LocalDateTime.of(2026, 9, 1, 8, 0)).build(),
+                        .createdAt(LocalDateTime.of(2026, 9, 1, 8, 0)).build(),
                 Follow.builder().followerId(follower).targetType(FollowTargetType.VENUE).targetId(newer)
-                        .createdAt(java.time.LocalDateTime.of(2026, 10, 1, 8, 0)).build()));
+                        .createdAt(LocalDateTime.of(2026, 10, 1, 8, 0)).build()));
 
         assertThat(service.getSavedVenues(follower))
                 .extracting(saved -> saved.venueId())

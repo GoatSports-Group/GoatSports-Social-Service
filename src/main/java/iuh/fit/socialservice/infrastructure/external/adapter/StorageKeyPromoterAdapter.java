@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.external.adapter;
 
+import iuh.fit.socialservice.application.dto.response.base.BaseResponse;
 import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.infrastructure.external.client.StorageClient;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class StorageKeyPromoterAdapter implements StorageKeyPromoter {
         if (pending.isEmpty()) return storageKeys;
 
         try {
-            var confirmed = storageClient.confirmFile(pending);
+            BaseResponse<List<String>> confirmed = storageClient.confirmFile(pending);
             if (confirmed == null || confirmed.getData() == null
                     || confirmed.getData().size() != pending.size()) {
                 log.warn("Storage tra ve so khoa khong khop khi xac nhan {} tep", pending.size());

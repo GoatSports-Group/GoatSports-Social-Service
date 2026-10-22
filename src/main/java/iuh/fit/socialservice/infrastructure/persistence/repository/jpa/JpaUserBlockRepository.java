@@ -2,6 +2,7 @@ package iuh.fit.socialservice.infrastructure.persistence.repository.jpa;
 
 import iuh.fit.socialservice.infrastructure.persistence.entity.UserBlockEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,7 +19,7 @@ public interface JpaUserBlockRepository extends JpaRepository<UserBlockEntity, U
     Optional<UserBlockEntity> findByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId);
     boolean existsByBlockerIdAndBlockedUserId(UUID blockerId, UUID blockedUserId);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("delete from UserBlockEntity b where b.blockerId = :userId or b.blockedUserId = :userId")
-    int deleteAllOf(@org.springframework.data.repository.query.Param("userId") UUID userId);
+    @Modifying
+    @Query("delete from UserBlockEntity b where b.blockerId = :userId or b.blockedUserId = :userId")
+    int deleteAllOf(@Param("userId") UUID userId);
 }

@@ -1,26 +1,42 @@
 package iuh.fit.socialservice.application.service.impl;
 
 import iuh.fit.socialservice.application.dto.request.CreateConversationCommand;
+import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.dto.request.SyncContextConversationCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
+import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
+import iuh.fit.socialservice.application.dto.response.MessageWindowCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.external.StorageKeyPromoter;
 import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
 import iuh.fit.socialservice.application.port.persistence.MessageRepository;
 import iuh.fit.socialservice.application.port.websocket.SocialWebSocketPublisher;
 import iuh.fit.socialservice.application.service.SocialBlockService;
 import iuh.fit.socialservice.domain.entity.Conversation;
 import iuh.fit.socialservice.domain.entity.ConversationMember;
+import iuh.fit.socialservice.domain.entity.Message;
+import iuh.fit.socialservice.domain.entity.MessageAttachment;
+import iuh.fit.socialservice.domain.enums.AttachmentType;
+import iuh.fit.socialservice.domain.enums.ConversationSubjectType;
 import iuh.fit.socialservice.domain.enums.MemberRole;
 import iuh.fit.socialservice.domain.enums.ConversationType;
+import iuh.fit.socialservice.domain.enums.MessageType;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,7 +58,7 @@ class SocialChatServiceImplTest {
     @Mock
     private SocialWebSocketPublisher webSocketPublisher;
     @Mock
-    private iuh.fit.socialservice.application.port.external.StorageKeyPromoter storageKeyPromoter;
+    private StorageKeyPromoter storageKeyPromoter;
 
     private SocialChatServiceImpl service;
 
@@ -55,7 +71,7 @@ class SocialChatServiceImplTest {
                 webSocketPublisher,
                 storageKeyPromoter
         );
-        org.mockito.Mockito.lenient().when(conversationRepository.save(any(Conversation.class)))
+        Mockito.lenient().when(conversationRepository.save(any(Conversation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -75,7 +91,7 @@ class SocialChatServiceImplTest {
                 .build());
 
         ArgumentCaptor<Conversation> captor = ArgumentCaptor.forClass(Conversation.class);
-        org.mockito.Mockito.verify(conversationRepository).save(captor.capture());
+        Mockito.verify(conversationRepository).save(captor.capture());
         Conversation conversation = captor.getValue();
 
         assertThat(conversation.getMembers()).hasSize(2);
@@ -97,7 +113,7 @@ class SocialChatServiceImplTest {
                 .members(List.of())
                 .build();
         when(conversationRepository.findPairConversation(any(UUID.class), any(UUID.class)))
-                .thenReturn(java.util.Optional.of(existing));
+                .thenReturn(Optional.of(existing));
 
         ConversationResponseCommand response = service.createGroupConversation(CreateConversationCommand.builder()
                 .type(ConversationType.MATCH)
@@ -112,7 +128,7 @@ class SocialChatServiceImplTest {
 
         assertThat(response.getConversationId()).isEqualTo(existingId);
         ArgumentCaptor<Conversation> captor = ArgumentCaptor.forClass(Conversation.class);
-        org.mockito.Mockito.verify(conversationRepository).save(captor.capture());
+        Mockito.verify(conversationRepository).save(captor.capture());
         Conversation saved = captor.getValue();
         assertThat(saved.getConversationId()).isEqualTo(existingId);
         assertThat(saved.getContextId()).isEqualTo(newSessionId);
@@ -126,7 +142,7 @@ class SocialChatServiceImplTest {
         UUID opponentId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         UUID existingId = UUID.randomUUID();
-        when(conversationRepository.findByContextId(sessionId)).thenReturn(java.util.Optional.of(
+        when(conversationRepository.findByContextId(sessionId)).thenReturn(Optional.of(
                 Conversation.builder()
                         .conversationId(existingId)
                         .type(ConversationType.MATCH)
@@ -148,7 +164,7 @@ class SocialChatServiceImplTest {
                 .build());
 
         assertThat(response.getConversationId()).isEqualTo(existingId);
-        org.mockito.Mockito.verify(conversationRepository, org.mockito.Mockito.never()).save(any(Conversation.class));
+        Mockito.verify(conversationRepository, Mockito.never()).save(any(Conversation.class));
     }
 
     @Test
@@ -159,14 +175,14 @@ class SocialChatServiceImplTest {
         service.getOrCreateDirectConversation(firstUserId, secondUserId);
 
         ArgumentCaptor<Conversation> captor = ArgumentCaptor.forClass(Conversation.class);
-        org.mockito.Mockito.verify(conversationRepository).save(captor.capture());
+        Mockito.verify(conversationRepository).save(captor.capture());
         assertThat(captor.getValue().getMembers())
                 .allSatisfy(member -> assertThat(member.getMemberId()).isNull());
     }
 
     private Conversation clubConversation(UUID contextId, UUID ownerId, List<UUID> memberIds) {
         LocalDateTime now = LocalDateTime.now();
-        List<ConversationMember> members = new java.util.ArrayList<>();
+        List<ConversationMember> members = new ArrayList<>();
         members.add(ConversationMember.builder().memberId(UUID.randomUUID()).userId(ownerId)
                 .role(MemberRole.OWNER).joinedAt(now).build());
         memberIds.forEach(userId -> members.add(ConversationMember.builder()
@@ -189,7 +205,7 @@ class SocialChatServiceImplTest {
                 .ownerId(ownerId).memberIds(List.of(memberId)).build());
 
         ArgumentCaptor<Conversation> captor = ArgumentCaptor.forClass(Conversation.class);
-        org.mockito.Mockito.verify(conversationRepository).save(captor.capture());
+        Mockito.verify(conversationRepository).save(captor.capture());
         Conversation saved = captor.getValue();
         assertThat(saved.getContextId()).isEqualTo(clubId);
         assertThat(saved.getType()).isEqualTo(ConversationType.CLUB);
@@ -258,7 +274,7 @@ class SocialChatServiceImplTest {
     @Test
     @DisplayName("thiếu chủ sở hữu thì từ chối đồng bộ")
     void syncRequiresOwner() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+        Assertions.assertThatThrownBy(() ->
                 service.syncContextConversation(SyncContextConversationCommand.builder()
                         .contextId(UUID.randomUUID()).name("CLB test").build()))
                 .isInstanceOf(ServiceException.class);
@@ -270,7 +286,7 @@ class SocialChatServiceImplTest {
         Conversation conversation = Conversation.builder()
                 .conversationId(UUID.randomUUID())
                 .type(ConversationType.DIRECT)
-                .members(new java.util.ArrayList<>(List.of(
+                .members(new ArrayList<>(List.of(
                         ConversationMember.builder().userId(sender).role(MemberRole.MEMBER).build(),
                         ConversationMember.builder().userId(other).role(MemberRole.MEMBER).build())))
                 .build();
@@ -278,9 +294,9 @@ class SocialChatServiceImplTest {
         return conversation;
     }
 
-    private static iuh.fit.socialservice.application.dto.request.SendMessageCommand.AttachmentItem image(String key) {
-        return iuh.fit.socialservice.application.dto.request.SendMessageCommand.AttachmentItem.builder()
-                .storageKey(key).type(iuh.fit.socialservice.domain.enums.AttachmentType.IMAGE).fileSize(2048L).build();
+    private static SendMessageCommand.AttachmentItem image(String key) {
+        return SendMessageCommand.AttachmentItem.builder()
+                .storageKey(key).type(AttachmentType.IMAGE).fileSize(2048L).build();
     }
 
     @Test
@@ -296,28 +312,28 @@ class SocialChatServiceImplTest {
                 .thenReturn(temp.stream().map(key -> key.substring("temp/".length())).toList());
         when(messageRepository.findBySenderIdAndClientMessageId(any(), anyString())).thenReturn(Optional.empty());
         when(messageRepository.save(any())).thenAnswer(call -> {
-            iuh.fit.socialservice.domain.entity.Message saved = call.getArgument(0);
+            Message saved = call.getArgument(0);
             saved.setMessageId(UUID.randomUUID());
             return saved;
         });
 
-        var response = service.sendMessage(iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+        MessageResponseCommand response = service.sendMessage(SendMessageCommand.builder()
                 .conversationId(conversation.getConversationId())
                 .senderId(sender)
                 .clientMessageId("c-1")
                 .attachments(temp.stream().map(SocialChatServiceImplTest::image).toList())
                 .build());
 
-        ArgumentCaptor<iuh.fit.socialservice.domain.entity.Message> saved =
-                ArgumentCaptor.forClass(iuh.fit.socialservice.domain.entity.Message.class);
-        org.mockito.Mockito.verify(messageRepository).save(saved.capture());
-        org.assertj.core.api.Assertions.assertThat(saved.getValue().getType())
-                .isEqualTo(iuh.fit.socialservice.domain.enums.MessageType.IMAGE);
-        org.assertj.core.api.Assertions.assertThat(saved.getValue().getAttachments())
-                .extracting(iuh.fit.socialservice.domain.entity.MessageAttachment::getStorageKey)
+        ArgumentCaptor<Message> saved =
+                ArgumentCaptor.forClass(Message.class);
+        Mockito.verify(messageRepository).save(saved.capture());
+        assertThat(saved.getValue().getType())
+                .isEqualTo(MessageType.IMAGE);
+        assertThat(saved.getValue().getAttachments())
+                .extracting(MessageAttachment::getStorageKey)
                 .containsExactly("chat-messages/" + sender + "/a-1.jpg", "chat-messages/" + sender + "/b-2.jpg",
                         "chat-messages/" + sender + "/c-3.jpg");
-        org.assertj.core.api.Assertions.assertThat(response.getAttachments()).hasSize(3);
+        assertThat(response.getAttachments()).hasSize(3);
     }
 
     @Test
@@ -326,16 +342,16 @@ class SocialChatServiceImplTest {
         UUID sender = UUID.randomUUID();
         Conversation conversation = directWith(sender, UUID.randomUUID());
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.sendMessage(
-                        iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+        Assertions.assertThatThrownBy(() -> service.sendMessage(
+                        SendMessageCommand.builder()
                                 .conversationId(conversation.getConversationId())
                                 .senderId(sender)
                                 .attachments(List.of(image("chat-messages/" + UUID.randomUUID() + "/x.jpg")))
                                 .build()))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("không thuộc về bạn");
-        org.mockito.Mockito.verifyNoInteractions(storageKeyPromoter);
-        org.mockito.Mockito.verify(messageRepository, org.mockito.Mockito.never()).save(any());
+        Mockito.verifyNoInteractions(storageKeyPromoter);
+        Mockito.verify(messageRepository, Mockito.never()).save(any());
     }
 
     @Test
@@ -344,9 +360,9 @@ class SocialChatServiceImplTest {
         UUID me = UUID.randomUUID();
         UUID other = UUID.randomUUID();
         Conversation conversation = directWith(me, other);
-        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
+        Pageable page = PageRequest.of(0, 20);
         when(messageRepository.findByConversationId(any(), any(), any()))
-                .thenReturn(org.springframework.data.domain.Page.empty());
+                .thenReturn(Page.empty());
 
         service.clearConversation(conversation.getConversationId(), me);
         service.getConversationMessages(conversation.getConversationId(), me, page);
@@ -355,9 +371,9 @@ class SocialChatServiceImplTest {
         LocalDateTime cleared = conversation.getMembers().get(0).getClearedAt();
         assertThat(cleared).isNotNull();
         assertThat(conversation.getMembers().get(1).getClearedAt()).isNull();
-        org.mockito.Mockito.verify(messageRepository).markConversationAsRead(conversation.getConversationId(), me);
-        org.mockito.Mockito.verify(messageRepository).findByConversationId(conversation.getConversationId(), cleared, page);
-        org.mockito.Mockito.verify(messageRepository).findByConversationId(conversation.getConversationId(), null, page);
+        Mockito.verify(messageRepository).markConversationAsRead(conversation.getConversationId(), me);
+        Mockito.verify(messageRepository).findByConversationId(conversation.getConversationId(), cleared, page);
+        Mockito.verify(messageRepository).findByConversationId(conversation.getConversationId(), null, page);
     }
 
     @Test
@@ -369,7 +385,7 @@ class SocialChatServiceImplTest {
         Conversation conversation = Conversation.builder()
                 .conversationId(UUID.randomUUID())
                 .type(ConversationType.GROUP)
-                .members(new java.util.ArrayList<>(List.of(
+                .members(new ArrayList<>(List.of(
                         ConversationMember.builder().userId(sender).role(MemberRole.OWNER).build(),
                         ConversationMember.builder().userId(listening).role(MemberRole.MEMBER).build(),
                         ConversationMember.builder().userId(muted).role(MemberRole.MEMBER).build())))
@@ -379,13 +395,13 @@ class SocialChatServiceImplTest {
         when(messageRepository.findBySenderIdAndClientMessageId(any(), anyString())).thenReturn(Optional.empty());
         when(messageRepository.save(any())).thenAnswer(call -> call.getArgument(0));
 
-        service.sendMessage(iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+        service.sendMessage(SendMessageCommand.builder()
                 .conversationId(conversation.getConversationId()).senderId(sender).clientMessageId("m-1")
                 .content("Tối nay đá không?").build());
 
-        org.mockito.Mockito.verify(webSocketPublisher).publishMessageToUser(eq(listening), any());
-        org.mockito.Mockito.verify(webSocketPublisher, org.mockito.Mockito.never()).publishMessageToUser(eq(muted), any());
-        org.mockito.Mockito.verify(webSocketPublisher, org.mockito.Mockito.never()).publishMessageToUser(eq(sender), any());
+        Mockito.verify(webSocketPublisher).publishMessageToUser(eq(listening), any());
+        Mockito.verify(webSocketPublisher, Mockito.never()).publishMessageToUser(eq(muted), any());
+        Mockito.verify(webSocketPublisher, Mockito.never()).publishMessageToUser(eq(sender), any());
     }
 
     @Test
@@ -395,14 +411,14 @@ class SocialChatServiceImplTest {
         UUID other = UUID.randomUUID();
         Conversation conversation = directWith(me, other);
         when(socialBlockService.hasBlocked(me, other)).thenReturn(true);
-        org.mockito.Mockito.lenient().when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
+        Mockito.lenient().when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
 
         ConversationResponseCommand mine = service.getConversation(conversation.getConversationId(), me);
         assertThat(mine.getBlockState()).isEqualTo("BLOCKED_BY_ME");
         assertThat(mine.getMuted()).isFalse();
 
         when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
-        org.mockito.Mockito.lenient().when(socialBlockService.hasBlocked(me, other)).thenReturn(true);
+        Mockito.lenient().when(socialBlockService.hasBlocked(me, other)).thenReturn(true);
         when(socialBlockService.hasBlocked(other, me)).thenReturn(false);
         ConversationResponseCommand theirs = service.getConversation(conversation.getConversationId(), other);
         assertThat(theirs.getBlockState()).isEqualTo("BLOCKED_BY_THEM");
@@ -414,18 +430,18 @@ class SocialChatServiceImplTest {
         UUID me = UUID.randomUUID();
         Conversation conversation = directWith(me, UUID.randomUUID());
         LocalDateTime anchor = LocalDateTime.now().minusMinutes(5);
-        iuh.fit.socialservice.domain.entity.Message first = iuh.fit.socialservice.domain.entity.Message.builder()
+        Message first = Message.builder()
                 .messageId(UUID.randomUUID()).content("chưa đọc").sentAt(anchor).build();
-        iuh.fit.socialservice.domain.entity.Message later = iuh.fit.socialservice.domain.entity.Message.builder()
+        Message later = Message.builder()
                 .messageId(UUID.randomUUID()).content("mới hơn").sentAt(anchor.plusMinutes(1)).build();
-        iuh.fit.socialservice.domain.entity.Message earlier = iuh.fit.socialservice.domain.entity.Message.builder()
+        Message earlier = Message.builder()
                 .messageId(UUID.randomUUID()).content("đã đọc").sentAt(anchor.minusMinutes(1)).build();
         when(messageRepository.findFirstUnread(conversation.getConversationId(), me, null)).thenReturn(Optional.of(first));
         when(messageRepository.findNewer(conversation.getConversationId(), anchor, true, null, 2))
                 .thenReturn(List.of(first, later));
         when(messageRepository.findOlder(conversation.getConversationId(), anchor, null, 10)).thenReturn(List.of(earlier));
 
-        var window = service.getUnreadWindow(conversation.getConversationId(), me, 2);
+        MessageWindowCommand window = service.getUnreadWindow(conversation.getConversationId(), me, 2);
 
         assertThat(window.messages()).extracting(item -> item.getContent()).containsExactly("mới hơn", "chưa đọc", "đã đọc");
         assertThat(window.firstUnreadMessageId()).isEqualTo(first.getMessageId());
@@ -443,7 +459,7 @@ class SocialChatServiceImplTest {
         when(conversationRepository.findPairOfType(ConversationType.BUSINESS, player, owner)).thenReturn(Optional.empty());
 
         ConversationResponseCommand created = service.getOrCreateBusinessConversation(
-                player, owner, iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE, venue);
+                player, owner, ConversationSubjectType.VENUE, venue);
 
         assertThat(created.getType()).isEqualTo(ConversationType.BUSINESS);
         assertThat(created.getSubjectId()).isEqualTo(venue);
@@ -453,19 +469,19 @@ class SocialChatServiceImplTest {
         Conversation existing = Conversation.builder()
                 .conversationId(UUID.randomUUID())
                 .type(ConversationType.BUSINESS)
-                .subjectType(iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE)
+                .subjectType(ConversationSubjectType.VENUE)
                 .subjectId(venue)
-                .members(new java.util.ArrayList<>(List.of(
+                .members(new ArrayList<>(List.of(
                         ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build(),
                         ConversationMember.builder().userId(player).role(MemberRole.MEMBER).build())))
                 .build();
         when(conversationRepository.findPairOfType(ConversationType.BUSINESS, player, owner)).thenReturn(Optional.of(existing));
 
         ConversationResponseCommand reused = service.getOrCreateBusinessConversation(
-                player, owner, iuh.fit.socialservice.domain.enums.ConversationSubjectType.TOURNAMENT, tournament);
+                player, owner, ConversationSubjectType.TOURNAMENT, tournament);
 
         assertThat(reused.getConversationId()).isEqualTo(existing.getConversationId());
-        assertThat(reused.getSubjectType()).isEqualTo(iuh.fit.socialservice.domain.enums.ConversationSubjectType.TOURNAMENT);
+        assertThat(reused.getSubjectType()).isEqualTo(ConversationSubjectType.TOURNAMENT);
         assertThat(reused.getSubjectId()).isEqualTo(tournament);
     }
 
@@ -476,11 +492,11 @@ class SocialChatServiceImplTest {
         UUID owner = UUID.randomUUID();
         when(socialBlockService.isBlocked(player, owner)).thenReturn(true);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getOrCreateBusinessConversation(
-                player, owner, iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE, UUID.randomUUID()))
+        Assertions.assertThatThrownBy(() -> service.getOrCreateBusinessConversation(
+                player, owner, ConversationSubjectType.VENUE, UUID.randomUUID()))
                 .isInstanceOf(ServiceException.class);
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getOrCreateBusinessConversation(
-                player, player, iuh.fit.socialservice.domain.enums.ConversationSubjectType.VENUE, UUID.randomUUID()))
+        Assertions.assertThatThrownBy(() -> service.getOrCreateBusinessConversation(
+                player, player, ConversationSubjectType.VENUE, UUID.randomUUID()))
                 .isInstanceOf(ServiceException.class);
     }
 
@@ -501,7 +517,7 @@ class SocialChatServiceImplTest {
         Conversation existing = Conversation.builder()
                 .conversationId(UUID.randomUUID())
                 .type(ConversationType.SUPPORT)
-                .members(new java.util.ArrayList<>(List.of(
+                .members(new ArrayList<>(List.of(
                         ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build())))
                 .build();
         when(conversationRepository.findSupportOf(owner)).thenReturn(Optional.of(existing));
@@ -510,12 +526,12 @@ class SocialChatServiceImplTest {
         assertThat(opened.getMembers()).extracting(ConversationResponseCommand.MemberItemResponse::getRole)
                 .containsExactly(MemberRole.OWNER, MemberRole.ADMIN);
 
-        existing.setMembers(new java.util.ArrayList<>(List.of(
+        existing.setMembers(new ArrayList<>(List.of(
                 ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build(),
                 ConversationMember.builder().userId(admin).role(MemberRole.ADMIN).build())));
-        org.mockito.Mockito.clearInvocations(conversationRepository);
+        Mockito.clearInvocations(conversationRepository);
         service.getOrCreateSupportConversation(owner, admin);
-        org.mockito.Mockito.verify(conversationRepository, org.mockito.Mockito.never()).save(any(Conversation.class));
+        Mockito.verify(conversationRepository, Mockito.never()).save(any(Conversation.class));
     }
 
     @Test
@@ -528,24 +544,24 @@ class SocialChatServiceImplTest {
                 .conversationId(UUID.randomUUID())
                 .type(ConversationType.SUPPORT)
                 .lastMessageId(lastMessageId)
-                .members(new java.util.ArrayList<>(List.of(
+                .members(new ArrayList<>(List.of(
                         ConversationMember.builder().userId(owner).role(MemberRole.OWNER).build())))
                 .build();
         when(messageRepository.findById(lastMessageId)).thenReturn(Optional.of(
-                iuh.fit.socialservice.domain.entity.Message.builder().messageId(lastMessageId).senderId(owner)
+                Message.builder().messageId(lastMessageId).senderId(owner)
                         .content("Cần hỗ trợ").build()));
         when(conversationRepository.findByType(eq(ConversationType.SUPPORT), any()))
-                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(support)));
+                .thenReturn(new PageImpl<>(List.of(support)));
 
-        var inbox = service.getSupportInbox(admin, org.springframework.data.domain.Pageable.unpaged());
+        Page<ConversationResponseCommand> inbox = service.getSupportInbox(admin, Pageable.unpaged());
         assertThat(inbox.getContent()).singleElement()
                 .satisfies(item -> assertThat(item.getAwaitingReply()).isTrue());
 
         when(conversationRepository.findById(support.getConversationId())).thenReturn(Optional.of(support));
         when(messageRepository.findBySenderIdAndClientMessageId(eq(owner), anyString())).thenReturn(Optional.empty());
         when(messageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        service.sendMessage(iuh.fit.socialservice.application.dto.request.SendMessageCommand.builder()
+        service.sendMessage(SendMessageCommand.builder()
                 .conversationId(support.getConversationId()).senderId(owner).content("Còn ai không?").build());
-        org.mockito.Mockito.verify(webSocketPublisher).publishSupportMessage(any());
+        Mockito.verify(webSocketPublisher).publishSupportMessage(any());
     }
 }

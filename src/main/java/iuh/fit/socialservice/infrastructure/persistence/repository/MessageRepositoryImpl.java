@@ -10,6 +10,7 @@ import iuh.fit.socialservice.domain.enums.MessageStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -73,7 +74,7 @@ public class MessageRepositoryImpl implements MessageRepository {
         Criteria sent = Criteria.where("sentAt").lt(before);
         if (floor != null) sent = sent.gt(floor);
         Query query = new Query(Criteria.where("conversationId").is(conversationId.toString()).andOperator(sent))
-                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "sentAt"))
+                .with(Sort.by(Sort.Direction.DESC, "sentAt"))
                 .limit(limit);
         return mongoTemplate.find(query, MessageEntity.class).stream().map(messageEntityMapper::toDomain).toList();
     }
@@ -85,7 +86,7 @@ public class MessageRepositoryImpl implements MessageRepository {
         boolean keepFrom = inclusive && from == after;
         Criteria sent = keepFrom ? Criteria.where("sentAt").gte(from) : Criteria.where("sentAt").gt(from);
         Query query = new Query(Criteria.where("conversationId").is(conversationId.toString()).andOperator(sent))
-                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "sentAt"))
+                .with(Sort.by(Sort.Direction.ASC, "sentAt"))
                 .limit(limit);
         return mongoTemplate.find(query, MessageEntity.class).stream().map(messageEntityMapper::toDomain).toList();
     }
@@ -100,7 +101,7 @@ public class MessageRepositoryImpl implements MessageRepository {
                 new Criteria().norOperator(readReceipt)));
         if (floor != null) parts.add(Criteria.where("sentAt").gt(floor));
         Query query = new Query(new Criteria().andOperator(parts.toArray(Criteria[]::new)))
-                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "sentAt"))
+                .with(Sort.by(Sort.Direction.ASC, "sentAt"))
                 .limit(1);
         return Optional.ofNullable(mongoTemplate.findOne(query, MessageEntity.class)).map(messageEntityMapper::toDomain);
     }

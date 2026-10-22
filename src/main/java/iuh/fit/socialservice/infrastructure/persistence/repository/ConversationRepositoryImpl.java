@@ -4,6 +4,7 @@ import java.util.Collection;
 import iuh.fit.socialservice.application.port.persistence.ConversationRepository;
 import iuh.fit.socialservice.domain.entity.Conversation;
 import iuh.fit.socialservice.domain.enums.ConversationType;
+import iuh.fit.socialservice.domain.enums.MemberRole;
 import iuh.fit.socialservice.infrastructure.persistence.entity.ConversationEntity;
 import iuh.fit.socialservice.infrastructure.persistence.mapper.ConversationEntityMapper;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaConversationRepository;
@@ -74,7 +75,7 @@ public class ConversationRepositoryImpl implements ConversationRepository {
     @Transactional(readOnly = true)
     public Optional<Conversation> findSupportOf(UUID ownerId) {
         return jpaConversationRepository.findOwnedByType(ConversationType.SUPPORT, ownerId,
-                        iuh.fit.socialservice.domain.enums.MemberRole.OWNER).stream()
+                        MemberRole.OWNER).stream()
                 .findFirst()
                 .map(conversationEntityMapper::toDomain);
     }

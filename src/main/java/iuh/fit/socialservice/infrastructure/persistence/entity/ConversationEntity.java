@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.infrastructure.persistence.entity;
 
+import iuh.fit.socialservice.domain.enums.ConversationSubjectType;
 import iuh.fit.socialservice.domain.enums.ConversationType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -63,7 +64,7 @@ public class ConversationEntity extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "subject_type", length = 32)
-    private iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType;
+    private ConversationSubjectType subjectType;
 
     @Column(name = "subject_id", columnDefinition = "UUID")
     private UUID subjectId;

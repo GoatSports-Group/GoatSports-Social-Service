@@ -6,8 +6,13 @@ import iuh.fit.socialservice.domain.enums.FollowTargetType;
 import iuh.fit.socialservice.infrastructure.persistence.mapper.FollowEntityMapper;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFollowRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,27 +44,27 @@ public class FollowRepositoryImpl implements FollowRepository {
     }
 
     @Override
-    public org.springframework.data.domain.Page<Follow> findFollowersOf(UUID userId, java.util.Collection<UUID> hidden,
-                                                                        org.springframework.data.domain.Pageable pageable) {
+    public Page<Follow> findFollowersOf(UUID userId, Collection<UUID> hidden,
+                                                                        Pageable pageable) {
         return jpaFollowRepository.findByTargetTypeAndTargetIdAndFollowerIdNotIn(
                 FollowTargetType.USER, userId, notEmpty(hidden), newestFirst(pageable)).map(followEntityMapper::toDomain);
     }
 
     @Override
-    public org.springframework.data.domain.Page<Follow> findFollowingOf(UUID userId, java.util.Collection<UUID> hidden,
-                                                                        org.springframework.data.domain.Pageable pageable) {
+    public Page<Follow> findFollowingOf(UUID userId, Collection<UUID> hidden,
+                                                                        Pageable pageable) {
         return jpaFollowRepository.findByFollowerIdAndTargetTypeAndTargetIdNotIn(
                 userId, FollowTargetType.USER, notEmpty(hidden), newestFirst(pageable)).map(followEntityMapper::toDomain);
     }
 
     /** "NOT IN ()" khong hop le o moi CSDL: dung mot id khong ton tai khi khong co ai can an. */
-    private static java.util.Collection<UUID> notEmpty(java.util.Collection<UUID> ids) {
-        return ids == null || ids.isEmpty() ? java.util.List.of(new UUID(0, 0)) : ids;
+    private static Collection<UUID> notEmpty(Collection<UUID> ids) {
+        return ids == null || ids.isEmpty() ? List.of(new UUID(0, 0)) : ids;
     }
 
-    private static org.springframework.data.domain.Pageable newestFirst(org.springframework.data.domain.Pageable pageable) {
-        return org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+    private static Pageable newestFirst(Pageable pageable) {
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     @Override

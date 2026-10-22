@@ -3,13 +3,18 @@ package iuh.fit.socialservice.infrastructure.persistence.repository;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
+import iuh.fit.socialservice.domain.entity.PlayerCall;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostReaction;
+import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostStatus;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import iuh.fit.socialservice.domain.enums.ReactionType;
+import iuh.fit.socialservice.domain.service.PostTags;
+import iuh.fit.socialservice.infrastructure.persistence.entity.PostEntity;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostShareEntity;
 import iuh.fit.socialservice.infrastructure.persistence.mapper.PostEntityMapper;
+import iuh.fit.socialservice.infrastructure.persistence.migration.PostTagKeyMigration;
 import iuh.fit.socialservice.infrastructure.persistence.migration.ShareRowDedupeMigration;
 import iuh.fit.socialservice.infrastructure.persistence.mapper.PostReactionEntityMapper;
 import iuh.fit.socialservice.infrastructure.persistence.repository.mongo.MongoPostReactionRepository;
@@ -23,10 +28,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
 
+import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -87,7 +99,7 @@ class PostRepositoryMongoTest {
         return posts.save(Post.builder()
                 .authorId(author).content(content).visibility(visibility).status(PostStatus.PUBLISHED)
                 .createdAt(at).updatedAt(at).publishedAt(at)
-                .tags(iuh.fit.socialservice.domain.service.PostTags.extract(content))
+                .tags(PostTags.extract(content))
                 .build());
     }
 
@@ -118,7 +130,7 @@ class PostRepositoryMongoTest {
         assertThat(callIds(true, true)).containsExactly(club.getPostId());
         assertThat(callIds(null, false)).hasSize(4);
         Post roundTrip = posts.findById(personal.getPostId()).orElseThrow();
-        assertThat(roundTrip.getPlayerCall().startTime()).isEqualTo(java.time.LocalTime.of(19, 30));
+        assertThat(roundTrip.getPlayerCall().startTime()).isEqualTo(LocalTime.of(19, 30));
     }
 
     @Test
@@ -126,17 +138,17 @@ class PostRepositoryMongoTest {
         Post later = withCall(stranger, null, false, 3, 1);
         Post sooner = withCall(stranger, null, false, 1, 9);
         Post football = withCall(stranger, null, false, 2, 5);
-        football.setSport(iuh.fit.socialservice.domain.enums.PostSport.FOOTBALL);
+        football.setSport(PostSport.FOOTBALL);
         posts.save(football);
         for (Post post : List.of(later, sooner)) {
-            post.setSport(iuh.fit.socialservice.domain.enums.PostSport.BADMINTON);
+            post.setSport(PostSport.BADMINTON);
             posts.save(post);
         }
         Sort soonest = Sort.by(Sort.Order.asc("playerCall.playDate"), Sort.Order.asc("playerCall.startTime"),
                 Sort.Order.desc("publishedAt"));
         PostRepository.FeedQuery badminton = new PostRepository.FeedQuery(viewer, Set.of(), Set.of(), Set.of(blocked),
                 false, null, null, null, new PostRepository.PlayerCallFilter(null, true),
-                Set.of(iuh.fit.socialservice.domain.enums.PostSport.BADMINTON));
+                Set.of(PostSport.BADMINTON));
 
         assertThat(posts.findFeed(badminton, PageRequest.of(0, 10, soonest)).getContent())
                 .extracting(Post::getPostId).containsExactly(sooner.getPostId(), later.getPostId());
@@ -144,10 +156,10 @@ class PostRepositoryMongoTest {
 
     private Post withCall(UUID author, UUID clubId, boolean filled, int daysFromNow, int minutesAgo) {
         Post post = publish(author, PostVisibility.PUBLIC, "", minutesAgo);
-        post.setPlayerCall(new iuh.fit.socialservice.domain.entity.PlayerCall(
-                iuh.fit.socialservice.domain.enums.PostSport.BADMINTON, "BADMINTON_DOUBLES",
-                java.time.LocalDate.now().plusDays(daysFromNow), java.time.LocalTime.of(19, 30),
-                java.time.LocalTime.of(21, 0), "Quận 7", 1, null, clubId, clubId == null ? null : "CLB", filled));
+        post.setPlayerCall(new PlayerCall(
+                PostSport.BADMINTON, "BADMINTON_DOUBLES",
+                LocalDate.now().plusDays(daysFromNow), LocalTime.of(19, 30),
+                LocalTime.of(21, 0), "Quận 7", 1, null, clubId, clubId == null ? null : "CLB", filled));
         return posts.save(post);
     }
 
@@ -205,7 +217,7 @@ class PostRepositoryMongoTest {
         save(b, 1);
 
         assertThat(reactions.countByPostIds(List.of(a.getPostId(), b.getPostId()), ReactionType.LIKE))
-                .containsExactlyEntriesOf(java.util.Map.of(a.getPostId(), 2L));
+                .containsExactlyEntriesOf(Map.of(a.getPostId(), 2L));
         assertThat(reactions.findByUserAndPostIds(viewer, List.of(a.getPostId(), b.getPostId())))
                 .extracting(PostReaction::getType)
                 .containsExactlyInAnyOrder(ReactionType.LIKE, ReactionType.SAVE);
@@ -230,32 +242,32 @@ class PostRepositoryMongoTest {
         for (int i = 0; i < 5; i++) publish(stranger, PostVisibility.PUBLIC, "#spam " + i, 30 + i);
         publish(stranger, PostVisibility.PUBLIC, "Tối nay #bóngđá", 20);
         Post plain = publish(viewer, PostVisibility.PUBLIC, "Ai #bongda không", 10);
-        plain.setSport(iuh.fit.socialservice.domain.enums.PostSport.FOOTBALL);
+        plain.setSport(PostSport.FOOTBALL);
         posts.save(plain);
 
         List<PostRepository.TagCount> top = trending(null, 5);
         assertThat(top.get(0)).isEqualTo(new PostRepository.TagCount("bóngđá", 2, 2));
         assertThat(top.get(1)).isEqualTo(new PostRepository.TagCount("spam", 5, 1));
         // Loc theo mon: chi bai bong da.
-        assertThat(trending(Set.of(iuh.fit.socialservice.domain.enums.PostSport.FOOTBALL), 5))
+        assertThat(trending(Set.of(PostSport.FOOTBALL), 5))
                 .containsExactly(new PostRepository.TagCount("bongda", 1, 1));
     }
 
     @Test
     void migrationRebuildsTagsAndKeysForOldPosts() {
-        Post old = publish(stranger, PostVisibility.PUBLIC, java.text.Normalizer.normalize("#CầuLông sáng mai", java.text.Normalizer.Form.NFD), 5);
-        template.updateFirst(new org.springframework.data.mongodb.core.query.Query(
-                        org.springframework.data.mongodb.core.query.Criteria.where("_id").is(old.getPostId().toString())),
-                new org.springframework.data.mongodb.core.query.Update().unset("tagKeys").set("tags", List.of("x")),
-                iuh.fit.socialservice.infrastructure.persistence.entity.PostEntity.class);
+        Post old = publish(stranger, PostVisibility.PUBLIC, Normalizer.normalize("#CầuLông sáng mai", Normalizer.Form.NFD), 5);
+        template.updateFirst(new Query(
+                        Criteria.where("_id").is(old.getPostId().toString())),
+                new Update().unset("tagKeys").set("tags", List.of("x")),
+                PostEntity.class);
 
-        assertThat(new iuh.fit.socialservice.infrastructure.persistence.migration.PostTagKeyMigration(template).backfill()).isEqualTo(1);
-        assertThat(new iuh.fit.socialservice.infrastructure.persistence.migration.PostTagKeyMigration(template).backfill()).isZero();
+        assertThat(new PostTagKeyMigration(template).backfill()).isEqualTo(1);
+        assertThat(new PostTagKeyMigration(template).backfill()).isZero();
         assertThat(posts.findById(old.getPostId()).orElseThrow().getTags()).containsExactly("cầulông");
         assertThat(posts.findFeed(visibility("caulong"), PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
     }
 
-    private List<PostRepository.TagCount> trending(Set<iuh.fit.socialservice.domain.enums.PostSport> sports, int limit) {
+    private List<PostRepository.TagCount> trending(Set<PostSport> sports, int limit) {
         LocalDateTime now = LocalDateTime.now();
         return posts.findTrendingTags(now.minusDays(7), now.minusDays(1), sports == null ? Set.of() : sports, limit);
     }

@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/internal/conversations")
 @RequiredArgsConstructor
@@ -18,7 +20,7 @@ public class SocialConversationInternalController {
 
     @PutMapping("/context/{contextId}")
     public ConversationResponseCommand syncContextConversation(
-            @PathVariable java.util.UUID contextId,
+            @PathVariable UUID contextId,
             @Valid @RequestBody SyncContextConversationRequest request
     ) throws ServiceException {
         return chatService.syncContextConversation(SyncContextConversationCommand.builder()

@@ -1,11 +1,14 @@
 package iuh.fit.socialservice.infrastructure.persistence.repository;
 
 import iuh.fit.socialservice.domain.enums.ConversationType;
+import iuh.fit.socialservice.domain.enums.FollowTargetType;
 import iuh.fit.socialservice.domain.enums.FriendshipStatus;
 import iuh.fit.socialservice.infrastructure.persistence.entity.ConversationEntity;
 import iuh.fit.socialservice.infrastructure.persistence.entity.ConversationMemberEntity;
+import iuh.fit.socialservice.infrastructure.persistence.entity.FollowEntity;
 import iuh.fit.socialservice.infrastructure.persistence.entity.FriendshipEntity;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaConversationRepository;
+import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFollowRepository;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFriendshipRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -13,6 +16,8 @@ import org.hibernate.cfg.Configuration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
 
 import java.io.FileInputStream;
@@ -20,6 +25,7 @@ import java.sql.DriverManager;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,7 +43,7 @@ class SuggestionQueriesPostgresTest {
     @BeforeAll
     static void connect() {
         // Windows dat JVM la "Asia/Saigon", ten Postgres khong nhan.
-        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         try (FileInputStream input = new FileInputStream("src/main/resources/application-dev.properties")) {
             Properties dev = new Properties();
             dev.load(input);
@@ -47,7 +53,7 @@ class SuggestionQueriesPostgresTest {
                     .addAnnotatedClass(ConversationEntity.class)
                     .addAnnotatedClass(ConversationMemberEntity.class)
                     .addAnnotatedClass(FriendshipEntity.class)
-                    .addAnnotatedClass(iuh.fit.socialservice.infrastructure.persistence.entity.FollowEntity.class)
+                    .addAnnotatedClass(FollowEntity.class)
                     .setProperty("hibernate.connection.url", url)
                     .setProperty("hibernate.hbm2ddl.auto", "none")
                     .setProperty("hibernate.connection.readOnly", "true")
@@ -81,16 +87,16 @@ class SuggestionQueriesPostgresTest {
 
     @Test
     void pagedFollowerAndFollowingQueriesRun() {
-        var follows = new JpaRepositoryFactory(entityManager)
-                .getRepository(iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFollowRepository.class);
-        var page = org.springframework.data.domain.PageRequest.of(0, 5,
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        JpaFollowRepository follows = new JpaRepositoryFactory(entityManager)
+                .getRepository(JpaFollowRepository.class);
+        PageRequest page = PageRequest.of(0, 5,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
         UUID nobody = new UUID(0, 0);
 
         assertThat(follows.findByTargetTypeAndTargetIdAndFollowerIdNotIn(
-                iuh.fit.socialservice.domain.enums.FollowTargetType.USER, UUID.randomUUID(), List.of(nobody), page)).isEmpty();
+                FollowTargetType.USER, UUID.randomUUID(), List.of(nobody), page)).isEmpty();
         assertThat(follows.findByFollowerIdAndTargetTypeAndTargetIdNotIn(
-                UUID.randomUUID(), iuh.fit.socialservice.domain.enums.FollowTargetType.USER, List.of(nobody), page)).isEmpty();
+                UUID.randomUUID(), FollowTargetType.USER, List.of(nobody), page)).isEmpty();
     }
 
     @Test

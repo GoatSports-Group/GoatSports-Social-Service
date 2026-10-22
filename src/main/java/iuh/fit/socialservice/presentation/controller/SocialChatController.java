@@ -4,25 +4,33 @@ import iuh.fit.socialservice.application.dto.request.CreateConversationCommand;
 import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
+import iuh.fit.socialservice.application.dto.response.MessageWindowCommand;
+import iuh.fit.socialservice.application.exception.ForbiddenException;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialChatService;
+import iuh.fit.socialservice.domain.enums.ConversationType;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialChatConverter;
+import iuh.fit.socialservice.presentation.request.BusinessConversationRequest;
 import iuh.fit.socialservice.presentation.request.CreateConversationRequest;
 import iuh.fit.socialservice.presentation.request.SendMessageRequest;
 import iuh.fit.socialservice.presentation.response.ConversationResponse;
 import iuh.fit.socialservice.presentation.response.MessageResponse;
+import iuh.fit.socialservice.presentation.response.MessageWindowResponse;
 import iuh.fit.socialservice.presentation.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,7 +51,7 @@ public class SocialChatController {
     @ApiMessage("Lấy danh sách cuộc trò chuyện thành công")
     public ResponseEntity<PageResponse<ConversationResponse>> getUserConversations(
             @RequestParam(required = false) UUID userId,
-            @RequestParam(required = false) java.util.List<iuh.fit.socialservice.domain.enums.ConversationType> types,
+            @RequestParam(required = false) List<ConversationType> types,
             Pageable pageable
     ) throws ServiceException {
         Page<ConversationResponseCommand> result = chatService.getUserConversations(caller(userId), types, pageable);
@@ -73,7 +81,7 @@ public class SocialChatController {
     @PostMapping("/business")
     @ApiMessage("Mở cuộc trò chuyện với chủ sân thành công")
     public ResponseEntity<ConversationResponse> getOrCreateBusinessConversation(
-            @Valid @RequestBody iuh.fit.socialservice.presentation.request.BusinessConversationRequest request
+            @Valid @RequestBody BusinessConversationRequest request
     ) throws ServiceException {
         ConversationResponseCommand result = chatService.getOrCreateBusinessConversation(
                 caller(null), request.getOwnerId(), request.getSubjectType(), request.getSubjectId());
@@ -133,12 +141,12 @@ public class SocialChatController {
 
     @GetMapping("/{conversationId}/messages/cursor")
     @ApiMessage("Lấy tin nhắn thành công")
-    public ResponseEntity<java.util.List<MessageResponse>> getMessagesByCursor(
+    public ResponseEntity<List<MessageResponse>> getMessagesByCursor(
             @PathVariable UUID conversationId,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(
-                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime before,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(
-                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime after,
+            @RequestParam(required = false) @DateTimeFormat(
+                    iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime before,
+            @RequestParam(required = false) @DateTimeFormat(
+                    iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime after,
             @RequestParam(defaultValue = "50") int size
     ) throws ServiceException {
         return ResponseEntity.ok(chatService.getMessagesByCursor(conversationId, caller(null), before, after, size)
@@ -147,12 +155,12 @@ public class SocialChatController {
 
     @GetMapping("/{conversationId}/messages/unread-window")
     @ApiMessage("Lấy tin nhắn thành công")
-    public ResponseEntity<iuh.fit.socialservice.presentation.response.MessageWindowResponse> getUnreadWindow(
+    public ResponseEntity<MessageWindowResponse> getUnreadWindow(
             @PathVariable UUID conversationId,
             @RequestParam(defaultValue = "50") int size
     ) throws ServiceException {
-        var window = chatService.getUnreadWindow(conversationId, caller(null), size);
-        return ResponseEntity.ok(new iuh.fit.socialservice.presentation.response.MessageWindowResponse(
+        MessageWindowCommand window = chatService.getUnreadWindow(conversationId, caller(null), size);
+        return ResponseEntity.ok(new MessageWindowResponse(
                 window.messages().stream().map(chatConverter::toResponse).toList(),
                 window.firstUnreadMessageId(), window.hasOlder(), window.hasNewer()));
     }
@@ -195,7 +203,7 @@ public class SocialChatController {
     }
 
     private void requireRole(String role, String message) throws ServiceException {
-        if (!currentUserProvider.hasRole(role)) throw new iuh.fit.socialservice.application.exception.ForbiddenException(message);
+        if (!currentUserProvider.hasRole(role)) throw new ForbiddenException(message);
     }
 
     /** Nguoi dang goi; neu client con gui kem mot id thi id do phai la chinh ho. */

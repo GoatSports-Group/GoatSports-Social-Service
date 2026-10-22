@@ -2,9 +2,15 @@ package iuh.fit.socialservice.infrastructure.persistence.repository.jpa;
 
 import iuh.fit.socialservice.domain.enums.FollowTargetType;
 import iuh.fit.socialservice.infrastructure.persistence.entity.FollowEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,15 +29,15 @@ public interface JpaFollowRepository extends JpaRepository<FollowEntity, UUID> {
 
     long countByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId);
 
-    org.springframework.data.domain.Page<FollowEntity> findByTargetTypeAndTargetIdAndFollowerIdNotIn(
-            FollowTargetType targetType, UUID targetId, java.util.Collection<UUID> hidden,
-            org.springframework.data.domain.Pageable pageable);
+    Page<FollowEntity> findByTargetTypeAndTargetIdAndFollowerIdNotIn(
+            FollowTargetType targetType, UUID targetId, Collection<UUID> hidden,
+            Pageable pageable);
 
-    org.springframework.data.domain.Page<FollowEntity> findByFollowerIdAndTargetTypeAndTargetIdNotIn(
-            UUID followerId, FollowTargetType targetType, java.util.Collection<UUID> hidden,
-            org.springframework.data.domain.Pageable pageable);
+    Page<FollowEntity> findByFollowerIdAndTargetTypeAndTargetIdNotIn(
+            UUID followerId, FollowTargetType targetType, Collection<UUID> hidden,
+            Pageable pageable);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("delete from FollowEntity f where f.followerId = :userId or f.targetId = :userId")
-    int deleteAllOf(@org.springframework.data.repository.query.Param("userId") UUID userId);
+    @Modifying
+    @Query("delete from FollowEntity f where f.followerId = :userId or f.targetId = :userId")
+    int deleteAllOf(@Param("userId") UUID userId);
 }

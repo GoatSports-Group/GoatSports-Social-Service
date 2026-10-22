@@ -9,6 +9,7 @@ import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaConver
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFollowRepository;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaFriendshipRepository;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaUserBlockRepository;
+import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class UserErasureQueriesTest {
                 .setProperty("hibernate.boot.allow_jdbc_metadata_access", "false")
                 .setProperty("hibernate.hbm2ddl.auto", "none")
                 .buildSessionFactory();
-             var entityManager = factory.createEntityManager()) {
+             Session entityManager = factory.createEntityManager()) {
             for (Method method : methods) {
                 entityManager.createQuery(method.getAnnotation(Query.class).value());
             }

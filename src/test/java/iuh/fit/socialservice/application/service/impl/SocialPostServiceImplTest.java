@@ -43,6 +43,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -57,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -95,7 +97,7 @@ class SocialPostServiceImplTest {
                 shareRepository, friendshipRepository, userBlockRepository, followRepository);
         service = new SocialPostServiceImpl(postRepository, commentRepository, reactionRepository, assembler,
                 storageKeyPromoter, eventPublisher, clubDirectory, activityPublisher, postRanker);
-        lenient().when(storageKeyPromoter.promote(org.mockito.ArgumentMatchers.anyList(), anyString()))
+        lenient().when(storageKeyPromoter.promote(ArgumentMatchers.anyList(), anyString()))
                 .thenAnswer(call -> call.getArgument(0));
     }
 
@@ -137,13 +139,13 @@ class SocialPostServiceImplTest {
         when(friendshipRepository.findUserFriends(me, FriendshipStatus.ACCEPTED))
                 .thenReturn(List.of(Friendship.builder().requesterId(me).addresseeId(friend).build()));
         when(postRepository.findFeed(any(), any())).thenReturn(Page.empty());
-        var page = PageRequest.of(0, 10);
+        PageRequest page = PageRequest.of(0, 10);
 
         service.getFeed(me, new SocialPostService.FeedFilter(true, null, null, null), page);
         service.getFeed(me, new SocialPostService.FeedFilter(true, null, null, null, false, Set.of(), true), page);
 
         ArgumentCaptor<PostRepository.FeedQuery> captor = ArgumentCaptor.forClass(PostRepository.FeedQuery.class);
-        verify(postRepository, org.mockito.Mockito.times(2)).findFeed(captor.capture(), any());
+        verify(postRepository, times(2)).findFeed(captor.capture(), any());
         assertThat(captor.getAllValues().get(0).followingIds()).containsExactly(followed);
         // Khoi "Ban be dang hoat dong" o Trang chu: kem ban be, van khong co chinh minh.
         assertThat(captor.getAllValues().get(1).followingIds()).containsExactlyInAnyOrder(followed, friend);
@@ -297,9 +299,9 @@ class SocialPostServiceImplTest {
 
         service.getOpenPlayerCalls(null, true, PostSport.FOOTBALL, 100);
 
-        org.mockito.ArgumentCaptor<PostRepository.FeedQuery> query = org.mockito.ArgumentCaptor.forClass(PostRepository.FeedQuery.class);
-        org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> page =
-                org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        ArgumentCaptor<PostRepository.FeedQuery> query = ArgumentCaptor.forClass(PostRepository.FeedQuery.class);
+        ArgumentCaptor<Pageable> page =
+                ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findFeed(query.capture(), page.capture());
         assertThat(query.getValue().playerCalls()).isEqualTo(new PostRepository.PlayerCallFilter(true, true));
         assertThat(query.getValue().sport()).isEqualTo(PostSport.FOOTBALL);
@@ -319,7 +321,7 @@ class SocialPostServiceImplTest {
     @DisplayName("bài viết lưu khóa vĩnh viễn, không lưu khóa temp/")
     void createPostStoresPromotedStorageKey() throws ServiceException {
         savesReturnTheirArgument();
-        when(storageKeyPromoter.promote(org.mockito.ArgumentMatchers.anyList(), anyString()))
+        when(storageKeyPromoter.promote(ArgumentMatchers.anyList(), anyString()))
                 .thenReturn(List.of("social-posts/photo.jpg"));
 
         service.createPost(SavePostCommand.builder()
@@ -356,7 +358,7 @@ class SocialPostServiceImplTest {
         when(userBlockRepository.findRelatedToUser(author))
                 .thenReturn(List.of(UserBlock.builder().blockerId(author).blockedUserId(blocked).build()));
         when(friendshipRepository.findUserFriends(any(), any())).thenAnswer(call -> friend.equals(call.getArgument(0))
-                ? List.of(iuh.fit.socialservice.domain.entity.Friendship.builder().requesterId(friend).addresseeId(author).build())
+                ? List.of(Friendship.builder().requesterId(friend).addresseeId(author).build())
                 : List.of());
 
         PostResponseCommand response = service.createPost(SavePostCommand.builder()
@@ -683,7 +685,7 @@ class SocialPostServiceImplTest {
     @Test
     void aPageCrossingTheWindowContinuesWithTheNewestOrder() {
         UUID viewer = UUID.randomUUID();
-        List<Post> all = java.util.stream.IntStream.range(0, 120)
+        List<Post> all = IntStream.range(0, 120)
                 .mapToObj(index -> post(UUID.randomUUID(), PostVisibility.PUBLIC)).toList();
         when(postRepository.findFeed(any(), any(Pageable.class))).thenAnswer(call -> {
             Pageable requested = call.getArgument(1);

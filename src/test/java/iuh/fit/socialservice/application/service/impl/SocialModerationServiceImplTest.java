@@ -5,9 +5,11 @@ import iuh.fit.socialservice.application.dto.request.ReviewAppealCommand;
 import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
 import iuh.fit.socialservice.application.dto.response.ContentAppealResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ContentReportResponseCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.persistence.ContentAppealRepository;
 import iuh.fit.socialservice.application.port.persistence.ContentReportRepository;
+import iuh.fit.socialservice.application.port.persistence.MessageRepository;
 import iuh.fit.socialservice.application.port.persistence.ModerationActionRepository;
 import iuh.fit.socialservice.application.port.persistence.PostCommentRepository;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
@@ -28,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,7 +56,7 @@ class SocialModerationServiceImplTest {
     @Mock
     private PostCommentRepository commentRepository;
     @Mock
-    private iuh.fit.socialservice.application.port.persistence.MessageRepository messageRepository;
+    private MessageRepository messageRepository;
 
     private SocialModerationServiceImpl service;
 
@@ -293,13 +296,13 @@ class SocialModerationServiceImplTest {
                 .hasMessageContaining("đã được xử lý");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void readsReportedPostEvenWhenHidden() {
         when(postRepository.findById(postId)).thenReturn(Optional.of(Post.builder()
                 .postId(postId).authorId(authorId).content("Bài quảng cáo").status(PostStatus.HIDDEN)
-                .attachments(new java.util.ArrayList<>()).build()));
+                .attachments(new ArrayList<>()).build()));
 
-        var target = service.getTarget(ReportTargetType.POST, postId);
+        ModerationTargetResponseCommand target = service.getTarget(ReportTargetType.POST, postId);
 
         assertThat(target.found()).isTrue();
         assertThat(target.authorId()).isEqualTo(authorId);
@@ -307,7 +310,7 @@ class SocialModerationServiceImplTest {
         assertThat(target.status()).isEqualTo("HIDDEN");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void reportsMissingContentInsteadOfFailing() {
         when(commentRepository.findById(postId)).thenReturn(Optional.empty());
 

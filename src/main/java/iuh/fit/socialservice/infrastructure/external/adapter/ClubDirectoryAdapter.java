@@ -1,6 +1,7 @@
 package iuh.fit.socialservice.infrastructure.external.adapter;
 
 import feign.FeignException;
+import iuh.fit.socialservice.application.dto.response.base.BaseResponse;
 import iuh.fit.socialservice.application.port.external.ClubDirectory;
 import iuh.fit.socialservice.infrastructure.external.client.ClubClient;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,7 @@ public class ClubDirectoryAdapter implements ClubDirectory {
     @Override
     public Optional<Club> find(UUID clubId) {
         try {
-            var response = clubClient.profile(clubId);
+            BaseResponse<ClubClient.ClubProfile> response = clubClient.profile(clubId);
             ClubClient.ClubProfile club = response == null ? null : response.getData();
             if (club == null) return Optional.empty();
             return Optional.of(new Club(club.clubId(), club.name(), club.sportType(),

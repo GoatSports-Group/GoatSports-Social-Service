@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class PostEntityMapper {
@@ -64,7 +65,7 @@ public class PostEntityMapper {
                 .tags(domain.getTags() == null ? Collections.emptyList() : domain.getTags())
                 .tagKeys(domain.getTags() == null ? new ArrayList<>()
                         : domain.getTags().stream().map(PostTags::key)
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                        .collect(Collectors.toCollection(ArrayList::new)))
                 .mentions(toMentionDocs(domain.getMentions()))
                 .build();
     }
@@ -106,13 +107,13 @@ public class PostEntityMapper {
                 .headline(highlight.headline()).subtitle(highlight.subtitle()).result(highlight.result())
                 .sides(highlight.sides().stream()
                         .map(side -> new PostHighlightDoc.SideDoc(side.name(), side.score(), side.winner()))
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                        .collect(Collectors.toCollection(ArrayList::new)))
                 .stats(highlight.stats().stream()
                         .map(stat -> new PostHighlightDoc.StatDoc(stat.label(), stat.value()))
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                        .collect(Collectors.toCollection(ArrayList::new)))
                 .clubId(toString(highlight.clubId())).clubName(highlight.clubName())
                 .tagged(highlight.tagged().stream().map(UUID::toString)
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new)))
+                        .collect(Collectors.toCollection(ArrayList::new)))
                 .build();
     }
 
@@ -143,14 +144,14 @@ public class PostEntityMapper {
         return docs.stream()
                 .filter(doc -> doc.getUserId() != null)
                 .map(doc -> new Mention(UUID.fromString(doc.getUserId()), doc.getName()))
-                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     static List<MentionDoc> toMentionDocs(List<Mention> mentions) {
         if (mentions == null) return new ArrayList<>();
         return mentions.stream()
                 .map(mention -> new MentionDoc(mention.userId().toString(), mention.name()))
-                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private UUID toUuid(String value) {

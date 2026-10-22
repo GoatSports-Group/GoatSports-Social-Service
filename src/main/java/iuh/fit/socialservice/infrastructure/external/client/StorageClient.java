@@ -2,8 +2,10 @@ package iuh.fit.socialservice.infrastructure.external.client;
 
 import iuh.fit.socialservice.application.dto.response.base.BaseResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -21,8 +23,8 @@ public interface StorageClient {
     @PostMapping("/move")
     BaseResponse<Void> moveFile(@RequestBody MoveFileRequest request);
 
-    @org.springframework.web.bind.annotation.DeleteMapping
-    void delete(@org.springframework.web.bind.annotation.RequestParam("key") String key);
+    @DeleteMapping
+    void delete(@RequestParam("key") String key);
 
     record FileMoveRequest(String tempKey) { }
 

@@ -1,5 +1,7 @@
 package iuh.fit.socialservice.presentation.controller;
 
+import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
+import iuh.fit.socialservice.application.exception.ForbiddenException;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.exception.UnauthenticatedException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
@@ -60,11 +62,11 @@ class SocialChatControllerTest {
         when(currentUser.hasRole("VENUE_OWNER")).thenReturn(false);
 
         assertThatThrownBy(() -> controller.getOrCreateSupportConversation(null))
-                .isInstanceOf(iuh.fit.socialservice.application.exception.ForbiddenException.class);
+                .isInstanceOf(ForbiddenException.class);
 
         when(currentUser.hasRole("VENUE_OWNER")).thenReturn(true);
         when(chatService.getOrCreateSupportConversation(me, null))
-                .thenReturn(new iuh.fit.socialservice.application.dto.response.ConversationResponseCommand());
+                .thenReturn(new ConversationResponseCommand());
         controller.getOrCreateSupportConversation(null);
         verify(chatService).getOrCreateSupportConversation(me, null);
     }
@@ -76,14 +78,14 @@ class SocialChatControllerTest {
         when(currentUser.hasRole("ADMIN")).thenReturn(false);
 
         assertThatThrownBy(() -> controller.getOrCreateSupportConversation(owner))
-                .isInstanceOf(iuh.fit.socialservice.application.exception.ForbiddenException.class);
+                .isInstanceOf(ForbiddenException.class);
         assertThatThrownBy(() -> controller.getSupportInbox(Pageable.unpaged()))
-                .isInstanceOf(iuh.fit.socialservice.application.exception.ForbiddenException.class);
+                .isInstanceOf(ForbiddenException.class);
         verify(chatService, never()).getOrCreateSupportConversation(any(), any());
 
         when(currentUser.hasRole("ADMIN")).thenReturn(true);
         when(chatService.getOrCreateSupportConversation(owner, me))
-                .thenReturn(new iuh.fit.socialservice.application.dto.response.ConversationResponseCommand());
+                .thenReturn(new ConversationResponseCommand());
         controller.getOrCreateSupportConversation(owner);
         verify(chatService).getOrCreateSupportConversation(owner, me);
     }

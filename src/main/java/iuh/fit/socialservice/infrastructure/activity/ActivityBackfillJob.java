@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +81,7 @@ public class ActivityBackfillJob {
         int sent = 0;
         List<Pending> chunk = new ArrayList<>(CHUNK);
         try (items) {
-            var iterator = items.iterator();
+            Iterator<Pending> iterator = items.iterator();
             while (iterator.hasNext()) {
                 chunk.add(iterator.next());
                 if (chunk.size() == CHUNK || !iterator.hasNext()) {

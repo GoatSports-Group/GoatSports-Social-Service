@@ -1,5 +1,6 @@
 package iuh.fit.socialservice.application.dto.response;
 
+import iuh.fit.socialservice.domain.enums.ConversationSubjectType;
 import iuh.fit.socialservice.domain.enums.ConversationType;
 import iuh.fit.socialservice.domain.enums.MemberRole;
 import lombok.*;
@@ -20,7 +21,7 @@ public class ConversationResponseCommand {
     private String avatarUrl;
     private UUID contextId;
     /** Chat BUSINESS: san / giai / ve nguoi choi dang hoi. */
-    private iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType;
+    private ConversationSubjectType subjectType;
     private UUID subjectId;
     /** Hop thu SUPPORT: tin cuoi do chu san gui, doi quan tri chua tra loi. */
     private Boolean awaitingReply;

@@ -5,10 +5,16 @@ import iuh.fit.socialservice.application.dto.request.SyncContextConversationComm
 import iuh.fit.socialservice.application.dto.request.SendMessageCommand;
 import iuh.fit.socialservice.application.dto.response.ConversationResponseCommand;
 import iuh.fit.socialservice.application.dto.response.MessageResponseCommand;
+import iuh.fit.socialservice.application.dto.response.MessageWindowCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.domain.enums.ConversationSubjectType;
+import iuh.fit.socialservice.domain.enums.ConversationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface SocialChatService {
@@ -16,11 +22,11 @@ public interface SocialChatService {
 
     /** {@code types} rong / null = moi loai (Tin nhan ben client); admin dung BUSINESS + SUPPORT. */
     Page<ConversationResponseCommand> getUserConversations(
-            UUID userId, java.util.Collection<iuh.fit.socialservice.domain.enums.ConversationType> types, Pageable pageable);
+            UUID userId, Collection<ConversationType> types, Pageable pageable);
 
     /** Chat cong viec nguoi choi <-> chu san; dung lai doan chat cu cua cap nay va cap nhat doi tuong dang hoi. */
     ConversationResponseCommand getOrCreateBusinessConversation(
-            UUID playerId, UUID ownerId, iuh.fit.socialservice.domain.enums.ConversationSubjectType subjectType, UUID subjectId)
+            UUID playerId, UUID ownerId, ConversationSubjectType subjectType, UUID subjectId)
             throws ServiceException;
 
     /**
@@ -48,13 +54,13 @@ public interface SocialChatService {
      * Cuon hai chieu theo con tro thoi gian (moi nhat truoc). {@code after} co gia tri thi lay tin moi hon,
      * khong thi lay tin cu hon {@code before} (null = tu moi nhat).
      */
-    java.util.List<MessageResponseCommand> getMessagesByCursor(UUID conversationId, UUID userId,
-                                                               java.time.LocalDateTime before,
-                                                               java.time.LocalDateTime after, int size)
+    List<MessageResponseCommand> getMessagesByCursor(UUID conversationId, UUID userId,
+                                                               LocalDateTime before,
+                                                               LocalDateTime after, int size)
             throws ServiceException;
 
     /** Mo doan chat tai tin chua doc dau tien: vai tin truoc no lam ngu canh, roi tu no tro di. */
-    iuh.fit.socialservice.application.dto.response.MessageWindowCommand getUnreadWindow(
+    MessageWindowCommand getUnreadWindow(
             UUID conversationId, UUID userId, int size) throws ServiceException;
 
     void markAsRead(UUID conversationId, UUID userId) throws ServiceException;

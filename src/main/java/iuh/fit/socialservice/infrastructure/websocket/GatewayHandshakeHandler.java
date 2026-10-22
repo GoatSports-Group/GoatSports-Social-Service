@@ -10,8 +10,11 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class GatewayHandshakeHandler extends DefaultHandshakeHandler {
@@ -26,8 +29,8 @@ public class GatewayHandshakeHandler extends DefaultHandshakeHandler {
         Object userId = attributes.get(USER_ID_ATTRIBUTE);
         if (!(userId instanceof UUID id)) return null;
         @SuppressWarnings("unchecked")
-        java.util.Set<String> roles = attributes.get(ROLES_ATTRIBUTE) instanceof java.util.Set<?> set
-                ? (java.util.Set<String>) set : java.util.Set.of();
+        Set<String> roles = attributes.get(ROLES_ATTRIBUTE) instanceof Set<?> set
+                ? (Set<String>) set : Set.of();
         return new WebSocketUserPrincipal(id, roles);
     }
 
@@ -58,13 +61,13 @@ public class GatewayHandshakeHandler extends DefaultHandshakeHandler {
         }
 
         /** "ROLE_ADMIN, VENUE_OWNER" -> {ADMIN, VENUE_OWNER}. Gateway da xoa X-User-* do client tu gui. */
-        static java.util.Set<String> roles(String raw) {
-            if (raw == null || raw.isBlank()) return java.util.Set.of();
-            return java.util.Arrays.stream(raw.split(","))
+        static Set<String> roles(String raw) {
+            if (raw == null || raw.isBlank()) return Set.of();
+            return Arrays.stream(raw.split(","))
                     .map(String::trim)
                     .filter(role -> !role.isBlank())
                     .map(role -> role.startsWith("ROLE_") ? role.substring(5) : role)
-                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+                    .collect(Collectors.toUnmodifiableSet());
         }
 
         @Override

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,7 +38,7 @@ class SocialPresenceServiceImplTest {
         reset(webSocketPublisher);
         service.heartbeat(userId, "session-1");
 
-        verify(webSocketPublisher, never()).publishPresenceStatus(org.mockito.ArgumentMatchers.any());
+        verify(webSocketPublisher, never()).publishPresenceStatus(ArgumentMatchers.any());
         assertThat(service.getPresence(List.of(userId)).getFirst().isOnline()).isTrue();
     }
 
@@ -49,7 +50,7 @@ class SocialPresenceServiceImplTest {
         reset(webSocketPublisher);
 
         service.disconnect("session-1", userId);
-        verify(webSocketPublisher, never()).publishPresenceStatus(org.mockito.ArgumentMatchers.any());
+        verify(webSocketPublisher, never()).publishPresenceStatus(ArgumentMatchers.any());
 
         service.disconnect("session-2", userId);
         ArgumentCaptor<PresenceStatusCommand> captor = ArgumentCaptor.forClass(PresenceStatusCommand.class);

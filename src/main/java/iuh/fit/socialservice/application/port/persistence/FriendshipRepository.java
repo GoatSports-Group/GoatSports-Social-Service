@@ -3,6 +3,7 @@ package iuh.fit.socialservice.application.port.persistence;
 import iuh.fit.socialservice.domain.entity.Friendship;
 import iuh.fit.socialservice.domain.enums.FriendshipStatus;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,7 +21,7 @@ public interface FriendshipRepository {
 
     Optional<Friendship> findBetweenUsers(UUID u1, UUID u2);
 
-    List<Friendship> findAcceptedOf(java.util.Collection<UUID> userIds);
+    List<Friendship> findAcceptedOf(Collection<UUID> userIds);
 
     void deleteById(UUID friendshipId);
 }

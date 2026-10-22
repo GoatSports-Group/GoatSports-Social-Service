@@ -2,7 +2,10 @@ package iuh.fit.socialservice.application.port.persistence;
 
 import iuh.fit.socialservice.domain.entity.Follow;
 import iuh.fit.socialservice.domain.enums.FollowTargetType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,9 +25,9 @@ public interface FollowRepository {
 
     long countByTargetTypeAndTargetId(FollowTargetType targetType, UUID targetId);
 
-    org.springframework.data.domain.Page<Follow> findFollowersOf(UUID userId, java.util.Collection<UUID> hidden,
-                                                                 org.springframework.data.domain.Pageable pageable);
+    Page<Follow> findFollowersOf(UUID userId, Collection<UUID> hidden,
+                                                                 Pageable pageable);
 
-    org.springframework.data.domain.Page<Follow> findFollowingOf(UUID userId, java.util.Collection<UUID> hidden,
-                                                                 org.springframework.data.domain.Pageable pageable);
+    Page<Follow> findFollowingOf(UUID userId, Collection<UUID> hidden,
+                                                                 Pageable pageable);
 }

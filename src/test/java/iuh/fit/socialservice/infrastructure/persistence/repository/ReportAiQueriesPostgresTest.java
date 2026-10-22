@@ -18,6 +18,7 @@ import java.sql.DriverManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,7 @@ class ReportAiQueriesPostgresTest {
 
     @BeforeAll
     static void connect() {
-        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         try (FileInputStream input = new FileInputStream("src/main/resources/application-dev.properties")) {
             Properties dev = new Properties();
             dev.load(input);

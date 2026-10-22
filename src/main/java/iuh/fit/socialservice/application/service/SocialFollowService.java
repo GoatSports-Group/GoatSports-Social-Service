@@ -7,6 +7,8 @@ import iuh.fit.socialservice.application.dto.response.VenueFollowStatusResponseC
 import iuh.fit.socialservice.application.exception.ServiceException;
 
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,14 +34,14 @@ public interface SocialFollowService {
             throws ServiceException;
 
     /** Nguoi theo doi {@code userId} (cuon vo han), bo nguoi co quan he chan voi nguoi xem. */
-    org.springframework.data.domain.Page<FollowEntry> getFollowers(UUID userId, UUID viewerId,
-                                                                   org.springframework.data.domain.Pageable pageable);
+    Page<FollowEntry> getFollowers(UUID userId, UUID viewerId,
+                                                                   Pageable pageable);
 
     /** Nguoi {@code userId} dang theo doi (cuon vo han), bo nguoi co quan he chan voi nguoi xem. */
-    org.springframework.data.domain.Page<FollowEntry> getFollowing(UUID userId, UUID viewerId,
-                                                                   org.springframework.data.domain.Pageable pageable);
+    Page<FollowEntry> getFollowing(UUID userId, UUID viewerId,
+                                                                   Pageable pageable);
 
-    record FollowEntry(UUID userId, java.time.LocalDateTime followedAt) {
+    record FollowEntry(UUID userId, LocalDateTime followedAt) {
     }
 
     record FollowSuggestion(UUID authorId, long postCount, String reason) {

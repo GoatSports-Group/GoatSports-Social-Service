@@ -3,11 +3,13 @@ package iuh.fit.socialservice.presentation.controller;
 import iuh.fit.shared.annotation.AuditLog;
 import iuh.fit.socialservice.application.dto.request.ModerateContentCommand;
 import iuh.fit.socialservice.application.dto.request.ReviewAppealCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.service.SocialModerationService;
 import iuh.fit.socialservice.domain.enums.AppealStatus;
 import iuh.fit.socialservice.domain.enums.ReportStatus;
+import iuh.fit.socialservice.domain.enums.ReportTargetType;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
 import iuh.fit.socialservice.presentation.converter.SocialModerationConverter;
 import iuh.fit.socialservice.presentation.request.ModerateContentRequest;
@@ -62,8 +64,8 @@ public class SocialModerationController {
     @GetMapping("/targets/{targetType}/{targetId}")
     @PreAuthorize("hasAnyAuthority('MODERATE_SOCIAL_CONTENT', 'REVIEW_CONTENT_APPEAL')")
     @ApiMessage("Lấy nội dung bị báo cáo thành công")
-    public ResponseEntity<iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand> getTarget(
-            @PathVariable iuh.fit.socialservice.domain.enums.ReportTargetType targetType,
+    public ResponseEntity<ModerationTargetResponseCommand> getTarget(
+            @PathVariable ReportTargetType targetType,
             @PathVariable UUID targetId
     ) {
         return ResponseEntity.ok(moderationService.getTarget(targetType, targetId));

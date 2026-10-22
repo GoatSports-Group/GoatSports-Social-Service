@@ -5,9 +5,11 @@ import iuh.fit.socialservice.application.dto.request.ReviewAppealCommand;
 import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
 import iuh.fit.socialservice.application.dto.response.ContentAppealResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ContentReportResponseCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.domain.enums.AppealStatus;
 import iuh.fit.socialservice.domain.enums.ReportStatus;
+import iuh.fit.socialservice.domain.enums.ReportTargetType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -20,8 +22,8 @@ public interface SocialModerationService {
     ContentReportResponseCommand getReport(UUID reportId) throws ServiceException;
 
     /** Nội dung đang bị báo cáo / khiếu nại (bài viết, bình luận, tin nhắn), để admin đọc đầy đủ trước khi xử lý. */
-    iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand getTarget(
-            iuh.fit.socialservice.domain.enums.ReportTargetType targetType, UUID targetId);
+    ModerationTargetResponseCommand getTarget(
+            ReportTargetType targetType, UUID targetId);
 
     ContentReportResponseCommand actOnReport(ModerateContentCommand command) throws ServiceException;
 
