@@ -32,4 +32,10 @@ public class SocialConversationInternalController {
                 .memberIds(request.getMemberIds())
                 .build());
     }
+
+    /** storage-service hoi truoc khi cap URL doc anh trong thu muc rieng tu chat-messages. */
+    @GetMapping("/attachments/access")
+    public boolean canViewAttachment(@RequestParam UUID userId, @RequestParam String key) {
+        return chatService.canViewAttachment(userId, key);
+    }
 }

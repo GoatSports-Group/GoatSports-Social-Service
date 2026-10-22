@@ -69,4 +69,7 @@ public interface SocialChatService {
     void clearConversation(UUID conversationId, UUID userId) throws ServiceException;
 
     void setMuted(UUID conversationId, UUID userId, boolean muted) throws ServiceException;
+
+    /** Anh dinh kem {@code storageKey} nam trong tin chua bi xoa cua mot doan chat ma {@code userId} con la thanh vien. */
+    boolean canViewAttachment(UUID userId, String storageKey);
 }

@@ -23,4 +23,6 @@ public interface MongoMessageRepository extends MongoRepository<MessageEntity, S
     Optional<MessageEntity> findFirstByConversationIdOrderBySentAtDesc(String conversationId);
 
     Optional<MessageEntity> findBySenderIdAndClientMessageId(String senderId, String clientMessageId);
+
+    Optional<MessageEntity> findFirstByAttachmentsStorageKey(String storageKey);
 }

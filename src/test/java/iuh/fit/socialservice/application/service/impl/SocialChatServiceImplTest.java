@@ -564,4 +564,26 @@ class SocialChatServiceImplTest {
                 .conversationId(support.getConversationId()).senderId(owner).content("Còn ai không?").build());
         Mockito.verify(webSocketPublisher).publishSupportMessage(any());
     }
+
+    @Test
+    void attachmentIsVisibleOnlyToActiveMembersOfALiveMessage() {
+        UUID sender = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        Conversation conversation = directWith(sender, other);
+        String key = "chat-messages/" + sender + "/abc-photo.png";
+        Message message = Message.builder().conversationId(conversation.getConversationId()).deleted(false).build();
+        when(messageRepository.findByAttachmentKey(key)).thenReturn(Optional.of(message));
+
+        assertThat(service.canViewAttachment(other, key)).isTrue();
+        assertThat(service.canViewAttachment(stranger, key)).isFalse();
+
+        conversation.getMembers().stream().filter(member -> other.equals(member.getUserId()))
+                .forEach(member -> member.setLeftAt(LocalDateTime.now()));
+        assertThat(service.canViewAttachment(other, key)).isFalse();
+
+        message.setDeleted(true);
+        assertThat(service.canViewAttachment(sender, key)).isFalse();
+        assertThat(service.canViewAttachment(sender, "chat-messages/unknown")).isFalse();
+    }
 }

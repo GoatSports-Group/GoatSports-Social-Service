@@ -25,7 +25,8 @@ import java.util.List;
 @Document(collection = "messages")
 @CompoundIndexes({
         @CompoundIndex(name = "conv_sent_idx", def = "{'conversationId': 1, 'sentAt': -1}"),
-        @CompoundIndex(name = "sender_client_message_idx", def = "{'senderId': 1, 'clientMessageId': 1}", unique = true, sparse = true)
+        @CompoundIndex(name = "sender_client_message_idx", def = "{'senderId': 1, 'clientMessageId': 1}", unique = true, sparse = true),
+        @CompoundIndex(name = "attachment_key_idx", def = "{'attachments.storageKey': 1}", sparse = true)
 })
 public class MessageEntity {
 

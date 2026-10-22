@@ -499,6 +499,18 @@ public class SocialChatServiceImpl implements SocialChatService {
         conversationRepository.save(conversation);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public boolean canViewAttachment(UUID userId, String storageKey) {
+        if (userId == null || storageKey == null || storageKey.isBlank()) return false;
+        return messageRepository.findByAttachmentKey(storageKey)
+                .filter(message -> !Boolean.TRUE.equals(message.getDeleted()))
+                .flatMap(message -> conversationRepository.findById(message.getConversationId()))
+                .map(conversation -> conversation.getMembers().stream()
+                        .anyMatch(member -> userId.equals(member.getUserId()) && member.getLeftAt() == null))
+                .orElse(false);
+    }
+
     /** Phan rieng cua nguoi xem: so tin chua doc, tat thong bao, quan he chan (chat hai nguoi). */
     private ConversationResponseCommand viewerResponse(Conversation conversation, UUID viewerId) {
         ConversationResponseCommand response = mapToConversationResponse(conversation);

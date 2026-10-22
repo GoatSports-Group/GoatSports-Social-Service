@@ -67,6 +67,11 @@ public class MessageRepositoryImpl implements MessageRepository {
                 .map(messageEntityMapper::toDomain);
     }
 
+    @Override
+    public Optional<Message> findByAttachmentKey(String storageKey) {
+        return mongoMessageRepository.findFirstByAttachmentsStorageKey(storageKey).map(messageEntityMapper::toDomain);
+    }
+
     // ponytail: con tro chi theo sentAt; hai tin cung mot mili giay o dung ranh gioi trang co the bi bo qua,
     // them (sentAt, messageId) neu gap that.
     @Override
