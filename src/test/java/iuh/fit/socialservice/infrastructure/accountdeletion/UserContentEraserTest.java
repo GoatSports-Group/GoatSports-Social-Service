@@ -23,9 +23,11 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,16 +41,32 @@ class UserContentEraserTest {
     @Mock private StorageClient storageClient;
     @InjectMocks private UserContentEraser eraser;
 
-    @Test
-    void removesPostsWithTheirThreadsRelationshipsAndGroupSeatsButKeepsGoingWhenAFileFails() {
-        UUID userId = UUID.randomUUID();
+    private final UUID userId = UUID.randomUUID();
+
+    private void givenAPostWithTwoImages() {
         PostEntity post = PostEntity.builder().postId("post-1").authorId(userId.toString())
                 .attachments(List.of(PostAttachmentDoc.builder().storageKey("social-posts/a.jpg").build(),
                         PostAttachmentDoc.builder().storageKey("social-posts/b.jpg").build()))
                 .build();
         when(mongo.find(any(Query.class), eq(PostEntity.class))).thenReturn(List.of(post));
         when(mongo.find(any(Query.class), eq(PostCommentEntity.class))).thenReturn(List.of());
+    }
+
+    /** Ảnh không xóa được thì dừng trước khi đụng dữ liệu: lần thử lại vẫn còn bài viết để tìm ra key ảnh. */
+    @Test
+    void anImageThatCannotBeDeletedStopsBeforeAnyDataIsRemoved() {
+        givenAPostWithTwoImages();
         doThrow(new RuntimeException("storage down")).when(storageClient).delete("social-posts/a.jpg");
+
+        assertThatThrownBy(() -> eraser.erase(userId)).hasMessageContaining("storage down");
+
+        verify(mongo, never()).remove(any(Query.class), any(Class.class));
+        verify(friendships, never()).deleteAllOf(userId);
+    }
+
+    @Test
+    void removesPostsWithTheirThreadsRelationshipsAndGroupSeatsAfterDeletingTheirImages() {
+        givenAPostWithTwoImages();
 
         eraser.erase(userId);
 
@@ -63,6 +81,7 @@ class UserContentEraserTest {
         verify(follows).deleteAllOf(userId);
         verify(blocks).deleteAllOf(userId);
         verify(conversations).leaveGroupConversations(eq(userId), any());
+        verify(storageClient).delete("social-posts/a.jpg");
         verify(storageClient).delete("social-posts/b.jpg");
     }
 }

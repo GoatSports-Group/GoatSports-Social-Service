@@ -50,6 +50,12 @@ public class UserContentEraser {
         List<String> commentIds = mongo.find(query(where("authorId").is(id)), PostCommentEntity.class).stream()
                 .map(PostCommentEntity::getCommentId).toList();
 
+        // Ảnh trước, dữ liệu sau: storage lỗi thì ném ra cho Kafka thử lại (hết lượt vào DLT) khi bài viết còn đó, lần
+        // sau vẫn tìm thấy key. Xóa dữ liệu trước thì mất dấu ảnh, thành file mồ côi.
+        posts.stream().flatMap(post -> post.getAttachments().stream())
+                .map(PostAttachmentDoc::getStorageKey).filter(Objects::nonNull)
+                .forEach(storageClient::delete);
+
         mongo.remove(query(new Criteria().orOperator(where("authorId").is(id), where("postId").in(postIds),
                 where("parentCommentId").in(commentIds))), PostCommentEntity.class);
         mongo.remove(query(new Criteria().orOperator(where("userId").is(id), where("postId").in(postIds))),
@@ -62,19 +68,6 @@ public class UserContentEraser {
         follows.deleteAllOf(userId);
         blocks.deleteAllOf(userId);
         conversations.leaveGroupConversations(userId, LocalDateTime.now());
-
-        posts.stream().flatMap(post -> post.getAttachments().stream())
-                .map(PostAttachmentDoc::getStorageKey).filter(Objects::nonNull)
-                .forEach(key -> deleteFile(key, userId));
         log.info("Erased {} posts and {} comments of deleted user {}", posts.size(), commentIds.size(), userId);
-    }
-
-    private void deleteFile(String key, UUID userId) {
-        try {
-            storageClient.delete(key);
-        } catch (Exception e) {
-            // ponytail: storage lỗi thì ảnh bài viết thành file mồ côi; bài đã xóa nên không ai còn link tới.
-            log.warn("Could not delete post attachment {} of user {}: {}", key, userId, e.getMessage());
-        }
     }
 }
