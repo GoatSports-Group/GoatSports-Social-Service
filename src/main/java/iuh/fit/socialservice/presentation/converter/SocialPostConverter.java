@@ -7,6 +7,7 @@ import iuh.fit.socialservice.application.dto.response.PostCommentResponseCommand
 import iuh.fit.socialservice.application.dto.response.PostResponseCommand;
 import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
+import iuh.fit.socialservice.domain.entity.PlayerCallVenue;
 import iuh.fit.socialservice.presentation.request.MentionRequest;
 import iuh.fit.socialservice.presentation.request.SaveCommentRequest;
 import iuh.fit.socialservice.presentation.request.SavePostRequest;
@@ -41,7 +42,13 @@ public class SocialPostConverter {
         if (request == null) return null;
         return new PlayerCall(request.sport(), blankToNull(request.playFormat()), request.playDate(),
                 request.startTime(), request.endTime(), request.location() == null ? null : request.location().trim(),
-                request.slots(), blankToNull(request.skillNote()), request.clubId(), null, false);
+                request.slots(), blankToNull(request.skillNote()), request.clubId(), null, false, toVenue(request.venue()));
+    }
+
+    private static PlayerCallVenue toVenue(SavePostRequest.PlayerCallVenueRequest request) {
+        if (request == null) return null;
+        return new PlayerCallVenue(request.kind(), request.venueId(), request.name().trim(), request.latitude(),
+                request.longitude());
     }
 
     private static String blankToNull(String value) {

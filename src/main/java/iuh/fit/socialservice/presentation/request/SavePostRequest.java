@@ -1,9 +1,12 @@
 package iuh.fit.socialservice.presentation.request;
 
+import iuh.fit.socialservice.domain.entity.PlayerCallVenue;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -60,7 +63,17 @@ public class SavePostRequest {
             @Min(1) @Max(30) int slots,
             @Size(max = 100) String skillNote,
             /** Chi chu hoac quan ly CLB moi dang thay CLB duoc (kiem tra o service). */
-            UUID clubId
+            UUID clubId,
+            /** San cu the (co so doi tac hoac san ngoai he thong) chon tren ban do; bo trong thi chi co khu vuc. */
+            @Valid PlayerCallVenueRequest venue
+    ) { }
+
+    public record PlayerCallVenueRequest(
+            @NotNull PlayerCallVenue.Kind kind,
+            @NotNull UUID venueId,
+            @NotBlank @Size(max = PlayerCallVenue.MAX_NAME_LENGTH) String name,
+            @NotNull @DecimalMin("-90") @DecimalMax("90") Double latitude,
+            @NotNull @DecimalMin("-180") @DecimalMax("180") Double longitude
     ) { }
 
     @Getter

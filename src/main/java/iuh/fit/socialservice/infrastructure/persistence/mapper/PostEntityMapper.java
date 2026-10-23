@@ -4,6 +4,7 @@ import iuh.fit.socialservice.domain.service.PostTags;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PostHighlightDoc;
 import iuh.fit.socialservice.domain.entity.PostHighlight;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
+import iuh.fit.socialservice.domain.entity.PlayerCallVenue;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostAttachment;
 import iuh.fit.socialservice.infrastructure.persistence.entity.PlayerCallDoc;
@@ -74,7 +75,16 @@ public class PostEntityMapper {
         if (doc == null) return null;
         return new PlayerCall(doc.getSport(), doc.getPlayFormat(), doc.getPlayDate(), toTime(doc.getStartTime()),
                 toTime(doc.getEndTime()), doc.getLocation(), doc.getSlots(), doc.getSkillNote(), toUuid(doc.getClubId()),
-                doc.getClubName(), doc.isFilled());
+                doc.getClubName(), doc.isFilled(), toVenue(doc));
+    }
+
+    private PlayerCallVenue toVenue(PlayerCallDoc doc) {
+        if (doc.getVenueKind() == null || doc.getVenueId() == null || doc.getVenueLatitude() == null
+                || doc.getVenueLongitude() == null) {
+            return null;
+        }
+        return new PlayerCallVenue(PlayerCallVenue.Kind.valueOf(doc.getVenueKind()), toUuid(doc.getVenueId()),
+                doc.getVenueName(), doc.getVenueLatitude(), doc.getVenueLongitude());
     }
 
     private PlayerCallDoc toDocument(PlayerCall call) {
@@ -85,6 +95,11 @@ public class PostEntityMapper {
                 .endTime(call.endTime() == null ? null : call.endTime().toString())
                 .location(call.location()).slots(call.slots()).skillNote(call.skillNote())
                 .clubId(toString(call.clubId())).clubName(call.clubName()).filled(call.filled())
+                .venueKind(call.venue() == null ? null : call.venue().kind().name())
+                .venueId(call.venue() == null ? null : toString(call.venue().venueId()))
+                .venueName(call.venue() == null ? null : call.venue().name())
+                .venueLatitude(call.venue() == null ? null : call.venue().latitude())
+                .venueLongitude(call.venue() == null ? null : call.venue().longitude())
                 .build();
     }
 

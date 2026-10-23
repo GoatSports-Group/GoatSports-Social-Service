@@ -11,6 +11,7 @@ import java.util.UUID;
  * roi hai ben tu chot san. {@code clubId} co gia tri khi chu hoac quan ly CLB dang thay CLB.
  *
  * @param slots so nguoi con thieu
+ * @param venue san cu the da chon (co the null: chi ghi khu vuc o {@code location})
  */
 public record PlayerCall(
         PostSport sport,
@@ -23,15 +24,18 @@ public record PlayerCall(
         String skillNote,
         UUID clubId,
         String clubName,
-        boolean filled
+        boolean filled,
+        PlayerCallVenue venue
 ) {
     public static final int MAX_SLOTS = 30;
 
     public PlayerCall withClub(UUID id, String name) {
-        return new PlayerCall(sport, playFormat, playDate, startTime, endTime, location, slots, skillNote, id, name, filled);
+        return new PlayerCall(sport, playFormat, playDate, startTime, endTime, location, slots, skillNote, id, name, filled,
+                venue);
     }
 
     public PlayerCall withFilled(boolean value) {
-        return new PlayerCall(sport, playFormat, playDate, startTime, endTime, location, slots, skillNote, clubId, clubName, value);
+        return new PlayerCall(sport, playFormat, playDate, startTime, endTime, location, slots, skillNote, clubId, clubName, value,
+                venue);
     }
 }

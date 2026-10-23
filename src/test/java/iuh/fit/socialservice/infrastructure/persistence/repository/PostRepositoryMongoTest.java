@@ -4,6 +4,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
+import iuh.fit.socialservice.domain.entity.PlayerCallVenue;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostReaction;
 import iuh.fit.socialservice.domain.enums.PostSport;
@@ -159,8 +160,21 @@ class PostRepositoryMongoTest {
         post.setPlayerCall(new PlayerCall(
                 PostSport.BADMINTON, "BADMINTON_DOUBLES",
                 LocalDate.now().plusDays(daysFromNow), LocalTime.of(19, 30),
-                LocalTime.of(21, 0), "Quận 7", 1, null, clubId, clubId == null ? null : "CLB", filled));
+                LocalTime.of(21, 0), "Quận 7", 1, null, clubId, clubId == null ? null : "CLB", filled,
+                new PlayerCallVenue(PlayerCallVenue.Kind.EXTERNAL, UUID.randomUUID(), "Sân Quận 7", 10.73, 106.72)));
         return posts.save(post);
+    }
+
+    @Test
+    void theChosenVenueOfAPlayerCallSurvivesTheRoundTrip() {
+        Post saved = withCall(stranger, null, false, 1, 5);
+
+        PlayerCallVenue venue = posts.findById(saved.getPostId()).orElseThrow().getPlayerCall().venue();
+
+        assertThat(venue.kind()).isEqualTo(PlayerCallVenue.Kind.EXTERNAL);
+        assertThat(venue.name()).isEqualTo("Sân Quận 7");
+        assertThat(venue.latitude()).isEqualTo(10.73);
+        assertThat(venue.venueId()).isEqualTo(saved.getPlayerCall().venue().venueId());
     }
 
     private List<UUID> callIds(Boolean club, boolean openOnly) {

@@ -26,4 +26,9 @@ public class PlayerCallDoc {
     private String clubId;
     private String clubName;
     private boolean filled;
+    private String venueKind;
+    private String venueId;
+    private String venueName;
+    private Double venueLatitude;
+    private Double venueLongitude;
 }

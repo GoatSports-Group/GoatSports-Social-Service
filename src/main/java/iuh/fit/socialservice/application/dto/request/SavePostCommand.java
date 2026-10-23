@@ -3,6 +3,7 @@ package iuh.fit.socialservice.application.dto.request;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
+import iuh.fit.socialservice.domain.entity.PlayerCallVenue;
 import iuh.fit.socialservice.domain.enums.AttachmentType;
 import iuh.fit.socialservice.domain.enums.PostSport;
 import iuh.fit.socialservice.domain.enums.PostVisibility;
@@ -82,6 +83,12 @@ public class SavePostCommand {
         if (call.playFormat() != null && call.playFormat().length() > 40
                 || call.skillNote() != null && call.skillNote().length() > 100) {
             throw new ServiceException("Thông tin kèo quá dài");
+        }
+        PlayerCallVenue venue = call.venue();
+        if (venue != null && (venue.kind() == null || venue.venueId() == null || venue.name() == null
+                || venue.name().isBlank() || venue.name().length() > PlayerCallVenue.MAX_NAME_LENGTH
+                || Math.abs(venue.latitude()) > 90 || Math.abs(venue.longitude()) > 180)) {
+            throw new ServiceException("Sân đã chọn không hợp lệ");
         }
     }
 

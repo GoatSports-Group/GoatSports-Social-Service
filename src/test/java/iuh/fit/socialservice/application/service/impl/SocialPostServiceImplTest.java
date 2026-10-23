@@ -29,6 +29,7 @@ import iuh.fit.socialservice.application.port.persistence.UserBlockRepository;
 import iuh.fit.socialservice.application.service.SocialPostService;
 import iuh.fit.socialservice.domain.entity.Mention;
 import iuh.fit.socialservice.domain.entity.PlayerCall;
+import iuh.fit.socialservice.domain.entity.PlayerCallVenue;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostComment;
 import iuh.fit.socialservice.domain.entity.PostReaction;
@@ -230,7 +231,8 @@ class SocialPostServiceImplTest {
 
     private static PlayerCall call(UUID clubId) {
         return new PlayerCall(PostSport.FOOTBALL, "FOOTBALL_7", LocalDate.now().plusDays(1), LocalTime.of(19, 0),
-                LocalTime.of(21, 0), "Sân Chảo Lửa, Tân Bình", 2, "Trung bình", clubId, "Tên do client tự đặt", true);
+                LocalTime.of(21, 0), "Sân Chảo Lửa, Tân Bình", 2, "Trung bình", clubId, "Tên do client tự đặt", true,
+                new PlayerCallVenue(PlayerCallVenue.Kind.EXTERNAL, UUID.randomUUID(), "Sân Chảo Lửa", 10.80, 106.65));
     }
 
     @Test
@@ -247,12 +249,26 @@ class SocialPostServiceImplTest {
         assertThat(saved.getPlayerCall().filled()).isFalse();
         assertThat(saved.getPlayerCall().clubName()).isNull();
         assertThat(response.getPlayerCall().slots()).isEqualTo(2);
+        assertThat(saved.getPlayerCall().venue().name()).isEqualTo("Sân Chảo Lửa");
+    }
+
+    @Test
+    void playerCallWithAVenueOffTheMapIsRejected() {
+        PlayerCall call = call(null);
+        PlayerCall offMap = new PlayerCall(call.sport(), call.playFormat(), call.playDate(), call.startTime(), call.endTime(),
+                call.location(), call.slots(), call.skillNote(), null, null, false,
+                new PlayerCallVenue(PlayerCallVenue.Kind.PARTNER, UUID.randomUUID(), "Sân lạ", 123.0, 106.65));
+
+        assertThatThrownBy(() -> service.createPost(SavePostCommand.builder()
+                .actorId(UUID.randomUUID()).visibility(PostVisibility.PUBLIC).playerCall(offMap).build()))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("Sân đã chọn");
+        verify(postRepository, never()).save(any());
     }
 
     @Test
     void playerCallInThePastIsRejected() {
         PlayerCall past = new PlayerCall(PostSport.BADMINTON, null, LocalDate.now().minusDays(1), LocalTime.of(19, 0),
-                LocalTime.of(21, 0), "Quận 7", 1, null, null, null, false);
+                LocalTime.of(21, 0), "Quận 7", 1, null, null, null, false, null);
 
         assertThatThrownBy(() -> service.createPost(SavePostCommand.builder()
                 .actorId(UUID.randomUUID()).visibility(PostVisibility.PUBLIC).playerCall(past).build()))
