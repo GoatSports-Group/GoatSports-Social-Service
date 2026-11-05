@@ -3,6 +3,7 @@ package iuh.fit.socialservice.presentation.controller;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.application.port.security.CurrentUserProvider;
 import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationDecisionResponseCommand;
 import iuh.fit.socialservice.application.service.SocialModerationService;
 import iuh.fit.socialservice.application.service.SocialReportService;
 import iuh.fit.socialservice.presentation.annotation.ApiMessage;
@@ -82,6 +83,14 @@ public class SocialReportController {
                 moderationService.getMyAppeals(requiredUserId(), pageable)
                         .map(moderationConverter::toResponse)
         ));
+    }
+
+    @GetMapping("/decisions/me")
+    @ApiMessage("Lấy quyết định kiểm duyệt thành công")
+    public ResponseEntity<PageResponse<ModerationDecisionResponseCommand>> getMyDecisions(
+            @PageableDefault(size = 10) Pageable pageable
+    ) throws ServiceException {
+        return ResponseEntity.ok(PageResponse.from(moderationService.getMyDecisions(requiredUserId(), pageable)));
     }
 
     private UUID requiredUserId() throws ServiceException {

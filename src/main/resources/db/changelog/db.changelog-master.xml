@@ -11,4 +11,5 @@
     <include file="/db/changelog/schema/06-10-2026/chat-member-preferences.xml"/>
     <include file="/db/changelog/schema/08-10-2026/chat-business-support.xml"/>
     <include file="/db/changelog/schema/14-10-2026/add-report-ai-verdict.xml"/>
+    <include file="/db/changelog/schema/05-11-2026/add-moderation-content-author.xml"/>
 </databaseChangeLog>

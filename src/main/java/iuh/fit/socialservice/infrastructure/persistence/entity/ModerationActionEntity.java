@@ -29,7 +29,8 @@ import java.util.UUID;
         name = "moderation_actions",
         indexes = {
                 @Index(name = "idx_moderation_actions_report", columnList = "report_id"),
-                @Index(name = "idx_moderation_actions_moderator", columnList = "moderator_id")
+                @Index(name = "idx_moderation_actions_moderator", columnList = "moderator_id"),
+                @Index(name = "idx_moderation_actions_author", columnList = "content_author_id")
         }
 )
 @Getter
@@ -49,6 +50,9 @@ public class ModerationActionEntity extends BaseEntity {
 
     @Column(name = "moderator_id", nullable = false, columnDefinition = "UUID")
     private UUID moderatorId;
+
+    @Column(name = "content_author_id", columnDefinition = "UUID")
+    private UUID contentAuthorId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "action_type", nullable = false, length = 40)

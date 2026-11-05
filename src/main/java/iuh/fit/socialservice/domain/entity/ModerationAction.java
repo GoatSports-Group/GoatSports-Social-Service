@@ -19,6 +19,7 @@ public class ModerationAction extends BaseEntity {
     private UUID actionId;
     private UUID reportId;
     private UUID moderatorId;
+    private UUID contentAuthorId;
     private ModerationActionType actionType;
     private String reason;
     private LocalDateTime actionAt;

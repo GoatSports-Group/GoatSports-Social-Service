@@ -16,6 +16,8 @@ public interface ContentAppealRepository {
 
     boolean existsByActionId(UUID actionId);
 
+    Optional<ContentAppeal> findByActionId(UUID actionId);
+
     Page<ContentAppeal> findByStatusIn(Collection<AppealStatus> statuses, Pageable pageable);
 
     Page<ContentAppeal> findByAppellantId(UUID appellantId, Pageable pageable);

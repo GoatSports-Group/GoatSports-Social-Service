@@ -18,6 +18,10 @@ public interface SocialEventPublisher {
     String POST_TAGGED = "social.post.tagged.v1";
     String FRIEND_REQUESTED = "social.friend.requested.v1";
     String FRIEND_ACCEPTED = "social.friend.accepted.v1";
+    /** Admin xử lý nội dung / tài khoản của người nhận (ẩn, gỡ, cảnh cáo, khôi phục). */
+    String MODERATION_DECIDED = "social.moderation.decided.v1";
+    /** Admin xét xong khiếu nại của người nhận. */
+    String MODERATION_APPEAL_REVIEWED = "social.moderation.appeal-reviewed.v1";
 
     /**
      * @param dedupeKey khoa cua su kien "chi bao mot lan" (vd. thich bai X boi nguoi Y). Cung khoa → cung

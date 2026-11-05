@@ -5,6 +5,7 @@ import iuh.fit.socialservice.application.dto.request.ReviewAppealCommand;
 import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
 import iuh.fit.socialservice.application.dto.response.ContentAppealResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ContentReportResponseCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationDecisionResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
 import iuh.fit.socialservice.domain.enums.AppealStatus;
@@ -34,4 +35,7 @@ public interface SocialModerationService {
     Page<ContentAppealResponseCommand> getAppealQueue(Collection<AppealStatus> statuses, Pageable pageable);
 
     Page<ContentAppealResponseCommand> getMyAppeals(UUID appellantId, Pageable pageable) throws ServiceException;
+
+    /** Quyết định kiểm duyệt nhắm vào nội dung / tài khoản của mình, kèm trạng thái khiếu nại. */
+    Page<ModerationDecisionResponseCommand> getMyDecisions(UUID authorId, Pageable pageable) throws ServiceException;
 }

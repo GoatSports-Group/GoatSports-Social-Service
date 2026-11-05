@@ -5,8 +5,10 @@ import iuh.fit.socialservice.application.dto.request.ReviewAppealCommand;
 import iuh.fit.socialservice.application.dto.request.SubmitAppealCommand;
 import iuh.fit.socialservice.application.dto.response.ContentAppealResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ContentReportResponseCommand;
+import iuh.fit.socialservice.application.dto.response.ModerationDecisionResponseCommand;
 import iuh.fit.socialservice.application.dto.response.ModerationTargetResponseCommand;
 import iuh.fit.socialservice.application.exception.ServiceException;
+import iuh.fit.socialservice.application.port.external.SocialEventPublisher;
 import iuh.fit.socialservice.application.port.persistence.ContentAppealRepository;
 import iuh.fit.socialservice.application.port.persistence.ContentReportRepository;
 import iuh.fit.socialservice.application.port.persistence.MessageRepository;
@@ -16,6 +18,7 @@ import iuh.fit.socialservice.application.port.persistence.PostRepository;
 import iuh.fit.socialservice.application.service.SocialModerationService;
 import iuh.fit.socialservice.domain.entity.ContentAppeal;
 import iuh.fit.socialservice.domain.entity.ContentReport;
+import iuh.fit.socialservice.domain.entity.Message;
 import iuh.fit.socialservice.domain.entity.ModerationAction;
 import iuh.fit.socialservice.domain.entity.Post;
 import iuh.fit.socialservice.domain.entity.PostComment;
@@ -32,7 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -41,8 +46,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SocialModerationServiceImpl implements SocialModerationService {
     private static final Set<ReportStatus> OPEN_STATUSES = Set.of(ReportStatus.PENDING, ReportStatus.REVIEWING);
-    private static final Set<ModerationActionType> APPEALABLE =
-            Set.of(ModerationActionType.HIDE_CONTENT, ModerationActionType.REMOVE_CONTENT);
+    /** Quyết định bất lợi cho người bị xử lý: được khiếu nại. */
+    private static final Set<ModerationActionType> APPEALABLE = Set.of(
+            ModerationActionType.HIDE_CONTENT, ModerationActionType.REMOVE_CONTENT, ModerationActionType.WARNING);
+    /** Đổi trạng thái nội dung: làm được cả khi báo cáo đã đóng. */
+    private static final Set<ModerationActionType> STATUS_CHANGES = Set.of(
+            ModerationActionType.HIDE_CONTENT, ModerationActionType.REMOVE_CONTENT, ModerationActionType.RESTORE_CONTENT);
+    /** Quyết định chạm tới người bị báo cáo: họ được báo và thấy trong danh sách của mình. Bác báo cáo thì không. */
+    private static final Set<ModerationActionType> AUTHOR_FACING = Set.of(
+            ModerationActionType.HIDE_CONTENT, ModerationActionType.REMOVE_CONTENT, ModerationActionType.WARNING,
+            ModerationActionType.RESTORE_CONTENT);
+    private static final int SNIPPET_LENGTH = 140;
+    private static final int NOTIFY_REASON_LENGTH = 200;
 
     private final ContentReportRepository reportRepository;
     private final ModerationActionRepository actionRepository;
@@ -50,6 +65,7 @@ public class SocialModerationServiceImpl implements SocialModerationService {
     private final PostRepository postRepository;
     private final PostCommentRepository commentRepository;
     private final MessageRepository messageRepository;
+    private final SocialEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,9 +73,7 @@ public class SocialModerationServiceImpl implements SocialModerationService {
         if (targetType == null || targetId == null) return ModerationTargetResponseCommand.missing(targetType, targetId);
         return switch (targetType) {
             case POST -> postRepository.findById(targetId)
-                    .map(post -> new ModerationTargetResponseCommand(targetType, targetId, true, post.getAuthorId(),
-                            post.getContent(), String.valueOf(post.getStatus()),
-                            post.getAttachments() == null ? 0 : post.getAttachments().size(), null, post.getCreatedAt()))
+                    .map(post -> postTarget(post, true))
                     .orElseGet(() -> ModerationTargetResponseCommand.missing(targetType, targetId));
             case COMMENT -> commentRepository.findById(targetId)
                     .map(comment -> new ModerationTargetResponseCommand(targetType, targetId, true, comment.getAuthorId(),
@@ -67,9 +81,7 @@ public class SocialModerationServiceImpl implements SocialModerationService {
                             comment.getCreatedAt()))
                     .orElseGet(() -> ModerationTargetResponseCommand.missing(targetType, targetId));
             case MESSAGE -> messageRepository.findById(targetId)
-                    .map(message -> new ModerationTargetResponseCommand(targetType, targetId, true, message.getSenderId(),
-                            message.getContent(), Boolean.TRUE.equals(message.getDeleted()) ? "DELETED" : String.valueOf(message.getStatus()),
-                            message.getAttachments() == null ? 0 : message.getAttachments().size(), null, message.getSentAt()))
+                    .map(this::messageTarget)
                     .orElseGet(() -> ModerationTargetResponseCommand.missing(targetType, targetId));
             // Báo cáo một tài khoản: "tác giả" chính là tài khoản đó, không có nội dung riêng.
             case USER -> new ModerationTargetResponseCommand(targetType, targetId, true, targetId, null, null, 0, null, null);
@@ -94,33 +106,42 @@ public class SocialModerationServiceImpl implements SocialModerationService {
         return toResponse(requireReport(reportId));
     }
 
+    /**
+     * Báo cáo còn mở: mọi hành động, đóng báo cáo. Báo cáo đã đóng: chỉ đổi trạng thái nội dung (ẩn / gỡ / khôi phục)
+     * sang trạng thái khác hiện tại; báo cáo giữ nguyên trạng thái, quyết định mới nối vào lịch sử.
+     */
     @Override
     @Transactional
     public ContentReportResponseCommand actOnReport(ModerateContentCommand command) throws ServiceException {
         String reason = command.validate();
         ContentReport report = requireReport(command.getReportId());
-        if (!OPEN_STATUSES.contains(report.getStatus())) {
-            throw new ServiceException("Báo cáo này đã được xử lý");
-        }
-
         ModerationActionType actionType = command.getActionType();
+        boolean open = OPEN_STATUSES.contains(report.getStatus());
+        if (!open) requireStatusChange(report, actionType);
+
         PostStatus targetStatus = contentStatusFor(actionType);
         if (targetStatus != null) {
             applyContentStatus(report.getTargetType(), report.getTargetId(), targetStatus);
         }
 
-        actionRepository.save(ModerationAction.builder()
+        ModerationTargetResponseCommand target = getTarget(report.getTargetType(), report.getTargetId());
+        ModerationAction action = actionRepository.save(ModerationAction.builder()
                 .reportId(report.getReportId())
                 .moderatorId(command.getModeratorId())
+                .contentAuthorId(target.found() ? target.authorId() : null)
                 .actionType(actionType)
                 .reason(reason)
                 .actionAt(LocalDateTime.now())
                 .build());
 
-        report.setStatus(actionType == ModerationActionType.DISMISS_REPORT
-                ? ReportStatus.REJECTED
-                : ReportStatus.RESOLVED);
-        return toResponse(reportRepository.save(report));
+        if (open) {
+            report.setStatus(actionType == ModerationActionType.DISMISS_REPORT
+                    ? ReportStatus.REJECTED
+                    : ReportStatus.RESOLVED);
+        }
+        ContentReport saved = reportRepository.save(report);
+        notifyDecision(action, report.getTargetType());
+        return toResponse(saved);
     }
 
     @Override
@@ -133,8 +154,14 @@ public class SocialModerationServiceImpl implements SocialModerationService {
             throw new ServiceException("Quyết định này không thuộc diện được khiếu nại");
         }
         ContentReport report = requireReport(action.getReportId());
-        if (!command.getAppellantId().equals(contentAuthorId(report.getTargetType(), report.getTargetId()))) {
-            throw new ServiceException("Chỉ tác giả nội dung mới được khiếu nại");
+        UUID authorId = action.getContentAuthorId() != null
+                ? action.getContentAuthorId()
+                : contentAuthorId(report.getTargetType(), report.getTargetId());
+        if (!command.getAppellantId().equals(authorId)) {
+            throw new ServiceException("Chỉ người bị xử lý mới được khiếu nại");
+        }
+        if (!isLatest(action)) {
+            throw new ServiceException("Quyết định này đã được thay bằng một quyết định mới hơn");
         }
         if (appealRepository.existsByActionId(action.getActionId())) {
             throw new ServiceException("Quyết định này đã được khiếu nại");
@@ -162,14 +189,22 @@ public class SocialModerationServiceImpl implements SocialModerationService {
                 .orElseThrow(() -> new ServiceException("Không tìm thấy quyết định kiểm duyệt"));
         ContentReport report = requireReport(action.getReportId());
 
-        if (command.getDecision() == AppealStatus.APPROVED) {
+        // Cảnh cáo không đổi trạng thái nội dung: chấp nhận khiếu nại chỉ là rút lại cảnh cáo.
+        if (command.getDecision() == AppealStatus.APPROVED && contentStatusFor(action.getActionType()) != null) {
             applyContentStatus(report.getTargetType(), report.getTargetId(), PostStatus.PUBLISHED);
         }
 
         appeal.setStatus(command.getDecision());
         appeal.setReviewedBy(command.getReviewerId());
         appeal.setReviewedAt(LocalDateTime.now());
-        return toResponse(appealRepository.save(appeal), action, report);
+        ContentAppeal saved = appealRepository.save(appeal);
+        eventPublisher.publish(SocialEventPublisher.MODERATION_APPEAL_REVIEWED, saved.getAppellantId(),
+                command.getReviewerId(), saved.getAppealId(),
+                Map.of("decision", saved.getStatus().name(),
+                        "actionType", action.getActionType().name(),
+                        "targetType", report.getTargetType().name()),
+                saved.getAppealId().toString());
+        return toResponse(saved, action, report);
     }
 
     @Override
@@ -189,6 +224,107 @@ public class SocialModerationServiceImpl implements SocialModerationService {
             throws ServiceException {
         if (appellantId == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
         return appealRepository.findByAppellantId(appellantId, pageable).map(this::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ModerationDecisionResponseCommand> getMyDecisions(UUID authorId, Pageable pageable)
+            throws ServiceException {
+        if (authorId == null) throw new ServiceException("Phiên đăng nhập đã hết hạn");
+        // ponytail: vài truy vấn cho mỗi quyết định; trang chỉ 10 dòng nên chưa cần gộp.
+        return actionRepository.findByContentAuthorId(authorId, AUTHOR_FACING, pageable).map(this::toDecision);
+    }
+
+    private ModerationDecisionResponseCommand toDecision(ModerationAction action) {
+        Optional<ContentReport> report = reportRepository.findById(action.getReportId());
+        ModerationTargetResponseCommand target = report
+                .map(value -> getTarget(value.getTargetType(), value.getTargetId()))
+                .orElse(null);
+        Optional<ContentAppeal> appeal = appealRepository.findByActionId(action.getActionId());
+        boolean appealable = APPEALABLE.contains(action.getActionType()) && appeal.isEmpty() && isLatest(action);
+        boolean found = target != null && target.found();
+        return new ModerationDecisionResponseCommand(
+                action.getActionId(),
+                action.getActionType(),
+                action.getReason(),
+                action.getActionAt(),
+                report.map(ContentReport::getTargetType).orElse(null),
+                report.map(ContentReport::getTargetId).orElse(null),
+                found ? snippet(target.content(), SNIPPET_LENGTH) : null,
+                found ? target.status() : null,
+                appealable,
+                appeal.map(value -> new ModerationDecisionResponseCommand.Appeal(value.getAppealId(), value.getStatus(),
+                        value.getReason(), value.getCreatedAt(), value.getReviewedAt())).orElse(null));
+    }
+
+    private ModerationTargetResponseCommand postTarget(Post post, boolean withShared) {
+        List<ModerationTargetResponseCommand.Attachment> attachments = post.getAttachments() == null
+                ? List.of()
+                : post.getAttachments().stream()
+                        .sorted(Comparator.comparingInt(attachment ->
+                                attachment.getDisplayOrder() == null ? 0 : attachment.getDisplayOrder()))
+                        .map(attachment -> new ModerationTargetResponseCommand.Attachment(
+                                attachment.getStorageKey(), attachment.getType(), null))
+                        .toList();
+        ModerationTargetResponseCommand shared = null;
+        if (withShared && post.getSharedPostId() != null) {
+            shared = postRepository.findById(post.getSharedPostId())
+                    .map(original -> postTarget(original, false))
+                    .orElseGet(() -> ModerationTargetResponseCommand.missing(ReportTargetType.POST, post.getSharedPostId()));
+        }
+        return new ModerationTargetResponseCommand(ReportTargetType.POST, post.getPostId(), true, post.getAuthorId(),
+                post.getContent(), String.valueOf(post.getStatus()), attachments.size(), null, post.getCreatedAt(),
+                attachments, post.getSport() == null ? null : post.getSport().name(), post.getHighlight(),
+                post.getPlayerCall(), shared);
+    }
+
+    private ModerationTargetResponseCommand messageTarget(Message message) {
+        List<ModerationTargetResponseCommand.Attachment> attachments = message.getAttachments() == null
+                ? List.of()
+                : message.getAttachments().stream()
+                        .map(attachment -> new ModerationTargetResponseCommand.Attachment(
+                                attachment.getStorageKey(), attachment.getType(), attachment.getFileName()))
+                        .toList();
+        String status = Boolean.TRUE.equals(message.getDeleted()) ? "DELETED" : String.valueOf(message.getStatus());
+        return new ModerationTargetResponseCommand(ReportTargetType.MESSAGE, message.getMessageId(), true,
+                message.getSenderId(), message.getContent(), status, attachments.size(), null, message.getSentAt(),
+                attachments, null, null, null, null);
+    }
+
+    private void requireStatusChange(ContentReport report, ModerationActionType actionType) throws ServiceException {
+        if (!STATUS_CHANGES.contains(actionType)) {
+            throw new ServiceException("Báo cáo đã xử lý chỉ có thể đổi trạng thái nội dung (ẩn, gỡ hoặc khôi phục)");
+        }
+        if (report.getTargetType() != ReportTargetType.POST && report.getTargetType() != ReportTargetType.COMMENT) {
+            throw new ServiceException("Chỉ đổi được trạng thái của bài viết và bình luận");
+        }
+        ModerationTargetResponseCommand target = getTarget(report.getTargetType(), report.getTargetId());
+        if (!target.found()) throw new ServiceException("Nội dung không còn trên hệ thống");
+        if (contentStatusFor(actionType).name().equals(target.status())) {
+            throw new ServiceException("Nội dung đang ở trạng thái này rồi");
+        }
+    }
+
+    /** Báo người bị xử lý (realtime qua notification-service); admin tự xử lý nội dung của mình thì không báo. */
+    private void notifyDecision(ModerationAction action, ReportTargetType targetType) {
+        UUID authorId = action.getContentAuthorId();
+        if (authorId == null || authorId.equals(action.getModeratorId())
+                || !AUTHOR_FACING.contains(action.getActionType())) {
+            return;
+        }
+        eventPublisher.publish(SocialEventPublisher.MODERATION_DECIDED, authorId, action.getModeratorId(),
+                action.getActionId(),
+                Map.of("actionType", action.getActionType().name(),
+                        "targetType", targetType.name(),
+                        "reason", snippet(action.getReason(), NOTIFY_REASON_LENGTH),
+                        "appealable", String.valueOf(APPEALABLE.contains(action.getActionType()))),
+                action.getActionId().toString());
+    }
+
+    /** Một báo cáo có thể bị xử lý nhiều lần (đổi trạng thái); chỉ quyết định mới nhất còn hiệu lực. */
+    private boolean isLatest(ModerationAction action) {
+        List<ModerationAction> actions = actionRepository.findByReportId(action.getReportId());
+        return !actions.isEmpty() && actions.get(actions.size() - 1).getActionId().equals(action.getActionId());
     }
 
     private PostStatus contentStatusFor(ModerationActionType actionType) throws ServiceException {
@@ -226,18 +362,19 @@ public class SocialModerationServiceImpl implements SocialModerationService {
         throw new ServiceException("Loại nội dung này chưa được hỗ trợ kiểm duyệt");
     }
 
+    /** Quyết định cũ chưa lưu tác giả: tra lại từ nội dung (bài, bình luận, tin nhắn, tài khoản). */
     private UUID contentAuthorId(ReportTargetType targetType, UUID targetId) throws ServiceException {
-        if (targetType == ReportTargetType.POST) {
-            return postRepository.findById(targetId)
-                    .map(Post::getAuthorId)
-                    .orElseThrow(() -> new ServiceException("Không tìm thấy bài viết liên quan"));
+        ModerationTargetResponseCommand target = getTarget(targetType, targetId);
+        if (!target.found() || target.authorId() == null) {
+            throw new ServiceException("Không tìm thấy nội dung liên quan");
         }
-        if (targetType == ReportTargetType.COMMENT) {
-            return commentRepository.findById(targetId)
-                    .map(PostComment::getAuthorId)
-                    .orElseThrow(() -> new ServiceException("Không tìm thấy bình luận liên quan"));
-        }
-        throw new ServiceException("Loại nội dung này chưa được hỗ trợ khiếu nại");
+        return target.authorId();
+    }
+
+    private static String snippet(String value, int maxLength) {
+        if (value == null) return "";
+        String text = value.strip();
+        return text.length() <= maxLength ? text : text.substring(0, maxLength - 1) + "…";
     }
 
     private ContentReport requireReport(UUID reportId) throws ServiceException {

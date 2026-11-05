@@ -495,7 +495,7 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     private static boolean isExplore(FeedFilter filter) {
         return !filter.followingOnly() && filter.authorId() == null && filter.tag() == null
-                && !filter.playerCallsOnly() && !filter.withFriends();
+                && !filter.playerCallsOnly() && !filter.withFriends() && filter.keyword() == null;
     }
 
     /**
@@ -564,7 +564,8 @@ public class SocialPostServiceImpl implements SocialPostService {
                 filter.authorId(),
                 PostTags.normalize(filter.tag()),
                 filter.playerCallsOnly() ? new PostRepository.PlayerCallFilter(null, true) : null,
-                filter.sports() == null ? Set.of() : filter.sports());
+                filter.sports() == null ? Set.of() : filter.sports(),
+                filter.keyword());
     }
 
     /** Tac gia cua bang tin "Dang theo doi": nguoi minh theo doi (va ban be neu can), khong bao gio chinh minh. */

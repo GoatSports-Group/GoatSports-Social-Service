@@ -2,13 +2,17 @@ package iuh.fit.socialservice.infrastructure.persistence.repository;
 
 import iuh.fit.socialservice.application.port.persistence.ModerationActionRepository;
 import iuh.fit.socialservice.domain.entity.ModerationAction;
+import iuh.fit.socialservice.domain.enums.ModerationActionType;
 import iuh.fit.socialservice.infrastructure.persistence.entity.ModerationActionEntity;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaContentReportRepository;
 import iuh.fit.socialservice.infrastructure.persistence.repository.jpa.JpaModerationActionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,6 +30,7 @@ public class ModerationActionRepositoryImpl implements ModerationActionRepositor
                 .actionId(action.getActionId())
                 .report(jpaReportRepository.getReferenceById(action.getReportId()))
                 .moderatorId(action.getModeratorId())
+                .contentAuthorId(action.getContentAuthorId())
                 .actionType(action.getActionType())
                 .reason(action.getReason())
                 .actionAt(action.getActionAt())
@@ -51,11 +56,20 @@ public class ModerationActionRepositoryImpl implements ModerationActionRepositor
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ModerationAction> findByContentAuthorId(UUID authorId, Collection<ModerationActionType> types,
+                                                       Pageable pageable) {
+        return jpaRepository.findByContentAuthorIdAndActionTypeInOrderByActionAtDesc(authorId, types, pageable)
+                .map(this::toDomain);
+    }
+
     private ModerationAction toDomain(ModerationActionEntity entity) {
         return ModerationAction.builder()
                 .actionId(entity.getActionId())
                 .reportId(entity.getReport().getReportId())
                 .moderatorId(entity.getModeratorId())
+                .contentAuthorId(entity.getContentAuthorId())
                 .actionType(entity.getActionType())
                 .reason(entity.getReason())
                 .actionAt(entity.getActionAt())

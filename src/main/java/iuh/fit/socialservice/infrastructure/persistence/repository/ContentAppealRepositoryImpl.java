@@ -55,6 +55,12 @@ public class ContentAppealRepositoryImpl implements ContentAppealRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<ContentAppeal> findByActionId(UUID actionId) {
+        return jpaRepository.findByAction_ActionId(actionId).map(this::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<ContentAppeal> findByStatusIn(Collection<AppealStatus> statuses, Pageable pageable) {
         return jpaRepository.findByStatusInOrderByCreatedAtAsc(statuses, pageable).map(this::toDomain);
     }
