@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
 
 @Repository
@@ -252,10 +251,6 @@ public class PostRepositoryImpl implements PostRepository {
             criteria.add(Criteria.where(prefix + "sport").in(feed.sports()));
         }
         if (feed.tag() != null) criteria.add(Criteria.where(prefix + "tagKeys").is(feed.tag()));
-        // ponytail: regex quét toàn bộ nội dung, đủ cho vài nghìn bài; nhiều hơn thì dùng text index của MongoDB.
-        if (feed.keyword() != null) {
-            criteria.add(Criteria.where(prefix + "content").regex(Pattern.quote(feed.keyword()), "i"));
-        }
         if (feed.playerCalls() != null) {
             String call = prefix + "playerCall";
             criteria.add(Criteria.where(call).ne(null));

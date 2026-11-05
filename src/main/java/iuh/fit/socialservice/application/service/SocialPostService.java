@@ -82,14 +82,8 @@ public interface SocialPostService {
      */
     PostResponseCommand publishHighlight(PublishHighlightCommand command) throws ServiceException;
 
-    /** {@code keyword}: tìm trong nội dung bài (không phân biệt hoa thường); null = không lọc. */
     record FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
-                      Set<PostSport> sports, boolean withFriends, String keyword) {
-        public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
-                          Set<PostSport> sports, boolean withFriends) {
-            this(followingOnly, sport, authorId, tag, playerCallsOnly, sports, withFriends, null);
-        }
-
+                      Set<PostSport> sports, boolean withFriends) {
         public FeedFilter(boolean followingOnly, PostSport sport, UUID authorId, String tag, boolean playerCallsOnly,
                           Set<PostSport> sports) {
             this(followingOnly, sport, authorId, tag, playerCallsOnly, sports, false);

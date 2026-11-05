@@ -166,23 +166,6 @@ class PostRepositoryMongoTest {
     }
 
     @Test
-    void keywordSearchIgnoresCaseAndTreatsRegexCharactersLiterally() {
-        Post match = publish(stranger, PostVisibility.PUBLIC, "Tìm KÈO cầu lông tối nay (Q.7)", 3);
-        publish(stranger, PostVisibility.PUBLIC, "Bóng đá sáng chủ nhật", 2);
-        publish(blocked, PostVisibility.PUBLIC, "kèo cầu lông của người bị chặn", 1);
-
-        assertThat(search("kèo cầu")).containsExactly(match.getPostId());
-        assertThat(search("(Q.7)")).containsExactly(match.getPostId());
-        assertThat(search(".*")).isEmpty();
-    }
-
-    private List<UUID> search(String keyword) {
-        PostRepository.FeedQuery query = new PostRepository.FeedQuery(null, Set.of(), Set.of(), Set.of(blocked),
-                false, null, null, null, null, Set.of(), keyword);
-        return posts.findFeed(query, PageRequest.of(0, 10)).getContent().stream().map(Post::getPostId).toList();
-    }
-
-    @Test
     void theChosenVenueOfAPlayerCallSurvivesTheRoundTrip() {
         Post saved = withCall(stranger, null, false, 1, 5);
 

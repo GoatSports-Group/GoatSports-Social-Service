@@ -65,16 +65,8 @@ public interface PostRepository {
             UUID authorId,
             String tag,
             PlayerCallFilter playerCalls,
-            Set<PostSport> sports,
-            String keyword
+            Set<PostSport> sports
     ) {
-        public FeedQuery(UUID viewerId, Set<UUID> friendIds, Set<UUID> followingIds, Set<UUID> blockedUserIds,
-                         boolean followingOnly, PostSport sport, UUID authorId, String tag, PlayerCallFilter playerCalls,
-                         Set<PostSport> sports) {
-            this(viewerId, friendIds, followingIds, blockedUserIds, followingOnly, sport, authorId, tag, playerCalls,
-                    sports, null);
-        }
-
         public FeedQuery(UUID viewerId, Set<UUID> friendIds, Set<UUID> followingIds, Set<UUID> blockedUserIds,
                          boolean followingOnly, PostSport sport, UUID authorId, String tag) {
             this(viewerId, friendIds, followingIds, blockedUserIds, followingOnly, sport, authorId, tag, null);

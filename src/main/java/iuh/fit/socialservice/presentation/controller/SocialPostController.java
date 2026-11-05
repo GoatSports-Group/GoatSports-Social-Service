@@ -55,21 +55,14 @@ public class SocialPostController {
             @RequestParam(defaultValue = "false") boolean playerCallsOnly,
             @RequestParam(required = false) Set<PostSport> sports,
             @RequestParam(defaultValue = "false") boolean withFriends,
-            @RequestParam(required = false) String q,
             @PageableDefault(size = 10, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
         SocialPostService.FeedFilter filter = new SocialPostService.FeedFilter(followingOnly, sport, authorId, tag,
-                playerCallsOnly, sports == null ? Set.of() : sports, withFriends, keyword(q));
+                playerCallsOnly, sports == null ? Set.of() : sports, withFriends);
         Page<PostResponse> response = postService.getFeed(currentUserIdOrNull(), filter, pageable)
                 .map(postConverter::toResponse);
         return ResponseEntity.ok(PageResponse.from(response));
-    }
-
-    private static String keyword(String q) {
-        if (q == null || q.isBlank()) return null;
-        String value = q.trim().replaceAll("\\s+", " ");
-        return value.length() > 100 ? value.substring(0, 100) : value;
     }
 
     @GetMapping("/saved")
